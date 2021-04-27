@@ -7,6 +7,7 @@ use rustler::Encoder;
 use rustler::Env;
 use rustler::Term;
 use std::ops::Bound::Included;
+use ordermap::set::OrderSet;
 
 #[derive(Debug, Clone)]
 pub struct RowData {
@@ -21,7 +22,7 @@ pub struct BigData {
     rows: HashMap<String, RowData>,
     // BTreeMap to range sort rows
     // The same time may be have mutiple RowId
-    time_index: BTreeMap<u128, Box<HashSet<String>>>,
+    time_index: BTreeMap<u128, Box<OrderSet<String>>>,
 }
 /// RowTerm is an enum that covers all the Erlang / Elixir term types that can be stored in
 /// a BigData.
@@ -82,7 +83,7 @@ impl BigData {
     ///    let insert_result = big_data.insert("a", RowData::new(r.clone(), 1234567890));
     ///    assert_eq!(None, insert_result);
     /// ```
-    /// 
+    ///
     pub fn insert(&mut self, row_id: &str, row_data: RowData) -> Option<RowData> {
         let time = row_data.time;
         let rs = match self.rows.insert(row_id.to_string(), row_data) {
@@ -101,7 +102,7 @@ impl BigData {
         if let Some(set) = self.time_index.get_mut(&time) {
             set.insert(row_id.to_string());
         } else {
-            let mut set = HashSet::new();
+            let mut set = OrderSet::new();
             set.insert(row_id.to_string());
             self.time_index.insert(time, Box::new(set));
         }
@@ -109,9 +110,8 @@ impl BigData {
     }
     /// Get a RowData From BigData, such as a key value
     ///
-    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     ///    let mut big_data = BigData::new();
     ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
@@ -122,44 +122,125 @@ impl BigData {
     ///    assert_eq!(row, Some(&row1))
     ///
     /// ```
-    pub fn get(&self, row_id: &str) -> Option<&RowData>{
+    pub fn get(&self, row_id: &str) -> Option<&RowData> {
         self.rows.get(row_id)
     }
-    pub fn get_time_index(&self, row_id: &str) -> Option<u128>{
+    /// Get timestamp by row_id
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///    let mut big_data = BigData::new();
+    ///    assert_eq!(None, big_data.get_time_index("a"));
+    ///    insert_data(&mut big_data, "a", &1);
+    ///    insert_data(&mut big_data, "b", &2);
+    ///    assert_eq!(Some(1), big_data.get_time_index("a"));
+    ///    assert_eq!(Some(2), big_data.get_time_index("b"))
+    ///
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    ///
+    ///
+    pub fn get_time_index(&self, row_id: &str) -> Option<u128> {
         match self.get(row_id) {
-            None => {
-                None
-            },
-            Some(row) =>{
-                Some(row.time)
-            }
+            None => None,
+            Some(row) => Some(row.time),
         }
     }
-    pub fn get_row_ids(&self, time: u128) -> Vec<&String>{
-
-        match self.time_index.get(&time){
-            None => {
-                Vec::new()
-            },
-            Some(set) =>{
+    /// Get row_ids by timestamp
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut big_data = BigData::new();
+    /// let ids: Vec<&String> = Vec::new();
+    /// assert_eq!(ids, big_data.get_row_ids(1));
+    /// insert_data(&mut big_data, "a", &1);
+    /// let mut ids = vec!["a"];
+    /// assert_eq!(ids, big_data.get_row_ids(1));
+    /// insert_data(&mut big_data, "b", &1);
+    /// ids.push("b");
+    /// assert_eq!(ids, big_data.get_row_ids(1));
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    ///
+    pub fn get_row_ids(&self, time: u128) -> Vec<&String> {
+        match self.time_index.get(&time) {
+            None => Vec::new(),
+            Some(set) => {
                 let mut l = Vec::new();
-                for row_id in set.as_ref(){
+                for row_id in set.as_ref() {
                     l.push(row_id);
                 }
                 l
             }
         }
     }
-    pub fn get_range(&mut self, start_time: u128, end_time: u128) -> Vec<&RowData> {
+    /// Query RowData from start_time to end_time included start_time and included end_time
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut big_data = BigData::new();
+    ///  // get range RowData
+    ///  let vec_data1: Vec<&RowData> = Vec::new();
+    ///  assert_eq!(vec_data1, big_data.get_range(0, 99999999999999));
+    ///  let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///  let row1 = RowData::new(r, 1234567890);
+    ///  big_data.insert("a", row1.clone());
+    ///  let vec_data = big_data.get_range(0, 1234567890);
+    ///  let vec_data1 = vec![&row1];
+    ///  assert_eq!(vec_data1, vec_data.clone());
+    ///
+    /// ```
+    pub fn get_range(&self, start_time: u128, end_time: u128) -> Vec<&RowData> {
+        let mut r = Vec::new();
+        for v in self.get_range_row_ids(start_time, end_time) {
+            if let Some(row) = self.get(v) {
+                r.push(row);
+            }
+        }
+        r
+    }
+    /// Get Range RowIds by timestamp range , included start_time and included end_time
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///  let mut big_data = BigData::new();
+    ///  let mut ids: Vec<&str> = Vec::new();
+    ///  assert_eq!(ids, big_data.get_range_row_ids(0,1));
+    ///  insert_data(&mut big_data, "a", &0);
+    ///  ids.push("a");
+    ///  assert_eq!(ids, big_data.get_range_row_ids(0,1));
+    ///  insert_data(&mut big_data, "b", &0);
+    ///  ids.push("b");
+    ///  assert_eq!(ids, big_data.get_range_row_ids(0,1));
+    ///
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    ///
+    pub fn get_range_row_ids(&self, start_time: u128, end_time: u128) -> Vec<&String> {
         let mut r = Vec::new();
         for (_, value) in self
             .time_index
             .range((Included(&start_time), Included(&end_time)))
         {
             for v in value.as_ref() {
-                if let Some(row) = self.get(v) {
-                    r.push(row);
-                }
+                r.push(v);
             }
         }
         r
@@ -253,21 +334,21 @@ mod test {
         // first insert
         let insert_result = big_data.insert("a", RowData::new(r.clone(), 1234567890));
         assert_eq!(Some(1234567890), big_data.get_time_index("a"));
-        assert_eq!(vec!["a"],big_data.get_row_ids(1234567890));
+        assert_eq!(vec!["a"], big_data.get_row_ids(1234567890));
         assert_eq!(None, insert_result);
         // second insert
         let insert_result = big_data.insert("a", RowData::new(r.clone(), 1234567891));
         assert_eq!(Some(1234567891), big_data.get_time_index("a"));
-        assert_eq!(vec!["a"],big_data.get_row_ids(1234567891));
+        assert_eq!(vec!["a"], big_data.get_row_ids(1234567891));
         assert_eq!(Some(RowData::new(r, 1234567890)), insert_result);
-        // 
+        //
         assert_eq!(Some(1234567891), big_data.get_time_index("a"));
         let aa: Vec<&str> = Vec::new();
-        assert_eq!(aa,big_data.get_row_ids(1234567890));
-        assert_eq!(vec!["a"],big_data.get_row_ids(1234567891))
+        assert_eq!(aa, big_data.get_row_ids(1234567890));
+        assert_eq!(vec!["a"], big_data.get_row_ids(1234567891))
     }
-   #[test]
-   fn get(){
+    #[test]
+    fn get() {
         let mut big_data = BigData::new();
         let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
         let row1 = RowData::new(r.clone(), 1234567890);
@@ -283,6 +364,75 @@ mod test {
         let row_ids = vec!["a"];
         assert_eq!(row_ids, big_data.get_row_ids(1234567890));
         assert_eq!(row, Some(&row1))
-   }
-
+    }
+    fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128) {
+        let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+        let row1 = RowData::new(r.clone(), *time);
+        big_data.insert(row_id, row1);
+    }
+    #[test]
+    fn get_time_index() {
+        let mut big_data = BigData::new();
+        assert_eq!(None, big_data.get_time_index("a"));
+        insert_data(&mut big_data, "a", &1);
+        insert_data(&mut big_data, "b", &2);
+        assert_eq!(Some(1), big_data.get_time_index("a"));
+        assert_eq!(Some(2), big_data.get_time_index("b"))
+    }
+    #[test]
+    fn get_row_ids() {
+        let mut big_data = BigData::new();
+        let ids: Vec<&String> = Vec::new();
+        assert_eq!(ids, big_data.get_row_ids(1));
+        insert_data(&mut big_data, "a", &1);
+        let mut ids = vec!["a"];
+        assert_eq!(ids, big_data.get_row_ids(1));
+        insert_data(&mut big_data, "b", &1);
+        ids.push("b");
+        assert_eq!(ids, big_data.get_row_ids(1));
+    }
+    #[test]
+    fn get_range() {
+        let mut big_data = BigData::new();
+        // get range RowData
+        let vec_data1: Vec<&RowData> = Vec::new();
+        assert_eq!(vec_data1, big_data.get_range(0, 99999999999999));
+        let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+        let row1 = RowData::new(r, 1234567890);
+        big_data.insert("a", row1.clone());
+        let vec_data = big_data.get_range(0, 1234567890);
+        let vec_data1 = vec![&row1];
+        assert_eq!(vec_data1, vec_data.clone());
+        let vec_data = big_data.get_range(0, 1234567889);
+        let vec_data1: Vec<&RowData> = Vec::new();
+        assert_eq!(vec_data1, vec_data);
+        // insert other RowData
+        let r = RowTerm::Tuple(vec![RowTerm::List(vec![RowTerm::Atom("b".to_string())])]);
+        let other = RowData::new(r, 1);
+        big_data.insert("b", other.clone());
+        let vec_data = big_data.get_range(0, 1234567890);
+        let vec_data1 = vec![&other, &row1];
+        assert_eq!(vec_data1, vec_data)
+    }
+    #[test]
+    fn get_range_row_ids() {
+        let mut big_data = BigData::new();
+        let mut ids: Vec<&str> = Vec::new();
+        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        insert_data(&mut big_data, "a", &0);
+        ids.push("a");
+        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        insert_data(&mut big_data, "b", &0);
+        ids.push("b");
+        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        insert_data(&mut big_data, "b", &0);
+        insert_data(&mut big_data, "a", &1);
+        ids.remove(0);
+        ids.push("a");
+        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        ids.remove(1);
+        assert_eq!(ids, big_data.get_range_row_ids(0,0));
+        ids.remove(0);
+        assert_eq!(ids, big_data.get_range_row_ids(2,3));
+    }
 }
