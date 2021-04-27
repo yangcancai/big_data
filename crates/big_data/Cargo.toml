@@ -1,0 +1,14 @@
+[package]
+name = "big_data"
+version = "0.1.0"
+authors = ["yangcancai <yangcancai0112@gmail.com>"]
+license = "MIT/Apache-2.0 2021"
+build = "build.rs"
+
+[lib]
+name = "big_data"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.22.0-rc.0"
+serde = { version = "1.0", features = ["derive"] }
