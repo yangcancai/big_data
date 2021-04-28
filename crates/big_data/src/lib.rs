@@ -1,7 +1,7 @@
 extern crate core;
+extern crate ordermap;
 extern crate rustler;
 extern crate serde;
-extern crate ordermap;
 mod atoms;
 pub mod big_data;
 mod nif;

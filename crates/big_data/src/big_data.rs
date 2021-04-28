@@ -1,13 +1,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-
+use std::ops::Add;
+use std::ops::AddAssign;
 use atoms;
+use ordermap::set::OrderSet;
 use rustler::types::atom::Atom;
 use rustler::types::tuple::make_tuple;
 use rustler::Encoder;
 use rustler::Env;
 use rustler::Term;
 use std::ops::Bound::Included;
-use ordermap::set::OrderSet;
 
 #[derive(Debug, Clone)]
 pub struct RowData {
@@ -74,6 +75,78 @@ impl BigData {
             time_index: BTreeMap::new(),
         }
     }
+    /// Clear all RowData and all time_index
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// let mut big_data = BigData::new();
+    /// big_data.clear();
+    /// insert_data(&mut big_data, "a", &1);
+    /// big_data.clear();
+    /// assert_eq!(None, big_data.get("a"));
+    /// let mut ids:Vec<&str> = vec![];
+    /// assert_eq!(ids, big_data.get_row_ids(1));
+    /// assert_eq!(None, big_data.get_time_index("a"));
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    pub fn clear(&mut self) {
+        self.time_index.clear();
+        self.rows.clear();
+    }
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+    pub fn len_time_index(&self) -> usize {
+        self.time_index.len()
+    }
+    /// Length of row_ids by time
+    /// maybe the same time will return great than 1
+    ///
+    /// # Examples
+    ///
+    ///
+    /// ```
+    ///
+    ///  let mut big_data = BigData::new();
+    ///  insert_data(&mut big_data, "a", &0);
+    ///  insert_data(&mut big_data, "b", &1);
+    ///  assert_eq!(2, big_data.len());
+    ///  assert_eq!(1, big_data.len_row_ids(0));
+    ///  assert_eq!(1, big_data.len_row_ids(1));
+    ///  insert_data(&mut big_data, "b", &0);
+    ///  assert_eq!(2, big_data.len_row_ids(0));
+    ///  assert_eq!(0, big_data.len_row_ids(1///  
+    /// ```
+    pub fn len_row_ids(&self, time: u128) -> usize {
+        let list = self.get_row_ids(time);
+        list.len()
+    }
+    /// Lenght of row_ids between start_time and end_time (Included(start_time), Included(end_time))
+    ///
+    /// # Examples
+    ///
+    /// ```        
+    ///  let mut big_data = BigData::new();
+    ///  insert_data(&mut big_data, "a", &0);
+    ///  insert_data(&mut big_data, "b", &1);
+    ///  assert_eq!(2, big_data.len_range_row_ids(0, 1));
+    ///  insert_data(&mut big_data, "b", &0);
+    ///  assert_eq!(2, big_data.len_range_row_ids(0, 0));
+    ///  insert_data(&mut big_data, "c", &5);
+    ///  assert_eq!(2, big_data.len_range_row_ids(0, 4));
+    ///  assert_eq!(3, big_data.len_range_row_ids(0, 5));
+    ///
+    /// ```
+    pub fn len_range_row_ids(&self, start_time: u128, end_time: u128) -> usize {
+        let list = self.get_range_row_ids(start_time, end_time);
+        list.len()
+    }
     /// Insert RowData to the BigData
     ///  
     /// # Examples
@@ -107,6 +180,139 @@ impl BigData {
             self.time_index.insert(time, Box::new(set));
         }
         rs
+    }
+    /// Update Counter for element
+    ///
+    /// # Examples
+    ///
+    ///   Please see below test fn update_counter
+    ///
+    pub fn update_counter(&mut self, row_id: &str, elem_spec: RowTerm) -> bool {
+        match elem_spec {
+            // elem_spec = {pos, incr}
+            RowTerm::Tuple(tuple) => {
+                if let Some(row_data) = self.rows.get_mut(row_id) {
+                    match &mut row_data.term {
+                        // tuple
+                        RowTerm::Tuple(row_data_tuple) => {
+                            if let RowTerm::Integer(i) = tuple[0] {
+                                let index = i as usize;
+                                if row_data_tuple.len() > index && index >= 0 {
+                                    row_data_tuple[index] +=
+                                        tuple[1].clone();
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        // list
+                        RowTerm::List(row_data_list) => {
+                            if let RowTerm::Integer(i) = tuple[0] {
+                                let index = i as usize;
+                                if row_data_list.len() > index && index >= 0 {
+                                    row_data_list[index] += tuple[1].clone();
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        // just single element
+                        _ => {
+                            if RowTerm::Integer(0) == tuple[0] {
+                                row_data.term += tuple[1].clone();
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    return false;
+                }
+            }
+            // elem_spec = [{pos, elem}, ...]
+            RowTerm::List(list) => {
+                for pos_elem in list {
+                    self.update_elem(row_id, pos_elem);
+                }
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        }
+    }
+    /// Update element
+    ///
+    /// # Examples
+    ///
+    /// Please see below test fn update_elem
+    ///
+    pub fn update_elem(&mut self, row_id: &str, elem_spec: RowTerm) -> bool {
+        match elem_spec {
+            // elem_spec = {pos, elem}
+            RowTerm::Tuple(tuple) => {
+                if let Some(row_data) = self.rows.get_mut(row_id) {
+                    match &mut row_data.term {
+                        // tuple
+                        RowTerm::Tuple(row_data_tuple) => {
+                            if let RowTerm::Integer(i) = tuple[0] {
+                                let index = i as usize;
+                                if row_data_tuple.len() > index && index >= 0 {
+                                    row_data_tuple[index] = tuple[1].clone();
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        // list
+                        RowTerm::List(row_data_list) => {
+                            if let RowTerm::Integer(i) = tuple[0] {
+                                let index = i as usize;
+                                if row_data_list.len() > index && index >= 0 {
+                                    row_data_list[index] = tuple[1].clone();
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        // just single element
+                        _ => {
+                            if RowTerm::Integer(0) == tuple[0] {
+                                row_data.term = tuple[1].clone();
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    return false;
+                }
+            }
+            // elem_spec = [{pos, elem}, ...]
+            RowTerm::List(list) => {
+                for pos_elem in list {
+                    self.update_elem(row_id, pos_elem);
+                }
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        }
     }
     /// Get a RowData From BigData, such as a key value
     ///
@@ -245,7 +451,104 @@ impl BigData {
         }
         r
     }
+    /// Remove RowId
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    ///   let mut big_data = BigData::new();
+    ///    big_data.remove("0");
+    ///    insert_data(&mut big_data, "a", &1);
+    ///    assert_eq!(Some(1), big_data.get_time_index("a"));
+    ///    big_data.remove("a");
+    ///    assert_eq!(None, big_data.get_time_index("a"));
+    ///    assert_eq!(None, big_data.get("a"));
+    ///    let ids: Vec<&str> = Vec::new();
+    ///    assert_eq!(ids, big_data.get_row_ids(1));
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    pub fn remove(&mut self, row_id: &str) {
+        // remove time_index
+        match self.get_time_index(row_id) {
+            None => {}
+            Some(time) => {
+                if let Some(set) = self.time_index.get_mut(&time) {
+                    set.remove(row_id);
+                }
+                // remove RowData
+                self.rows.remove(row_id);
+            }
+        }
+    }
+    /// Remove RowIds , Included start_time to Included end_time
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// let mut big_data = BigData::new();
+    /// big_data.remove_row_ids(0, 10);
+    /// insert_data(&mut big_data, "0", &11);
+    /// insert_data(&mut big_data, "1", &1);
+    /// let mut ids: Vec<&str> = Vec::new();
+    /// ids.push("1");
+    /// ids.push("0");
+    /// assert_eq!(ids ,big_data.get_range_row_ids(0, 11));
+    /// big_data.remove_row_ids(0, 10);
+    /// ids.remove(0);
+    /// assert_eq!(ids, big_data.get_range_row_ids(0, 11));
+    /// big_data.remove_row_ids(11, 11);
+    /// ids.remove(0);
+    /// assert_eq!(ids, big_data.get_range_row_ids(0, 11));
+    /// fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128){
+    ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
+    ///    let row1 = RowData::new(r.clone(), *time);
+    ///    big_data.insert(row_id, row1);
+    /// }
+    /// ```
+    pub fn remove_row_ids(&mut self, start_time: u128, end_time: u128) {
+        let mut time_indexs: Vec<u128> = Vec::new();
+        for (time, value) in self
+            .time_index
+            .range((Included(&start_time), Included(&end_time)))
+        {
+            for row_id in value.as_ref() {
+                self.rows.remove(row_id);
+            }
+            time_indexs.push(*time);
+        }
+        for time in time_indexs {
+            self.time_index.remove(&time);
+        }
+    }
 }
+impl Add for RowTerm {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        match self {
+            RowTerm::Integer(self_inner) => {
+                if let RowTerm::Integer(other_inner) = other {
+                    RowTerm::Integer(other_inner + self_inner)
+                }else{
+                    self
+                }
+            }
+            r => r,
+        }
+    }
+}
+impl AddAssign for RowTerm {
+    fn add_assign(&mut self, other: Self) {
+      let new =  self.clone().add(other);
+       *self =   new.clone();
+    }
+}
+
 impl PartialEq for RowTerm {
     fn eq(&self, other: &RowTerm) -> bool {
         match self {
@@ -418,21 +721,205 @@ mod test {
     fn get_range_row_ids() {
         let mut big_data = BigData::new();
         let mut ids: Vec<&str> = Vec::new();
-        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        assert_eq!(ids, big_data.get_range_row_ids(0, 1));
         insert_data(&mut big_data, "a", &0);
         ids.push("a");
-        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        assert_eq!(ids, big_data.get_range_row_ids(0, 1));
         insert_data(&mut big_data, "b", &0);
         ids.push("b");
-        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        assert_eq!(ids, big_data.get_range_row_ids(0, 1));
         insert_data(&mut big_data, "b", &0);
         insert_data(&mut big_data, "a", &1);
         ids.remove(0);
         ids.push("a");
-        assert_eq!(ids, big_data.get_range_row_ids(0,1));
+        assert_eq!(ids, big_data.get_range_row_ids(0, 1));
         ids.remove(1);
-        assert_eq!(ids, big_data.get_range_row_ids(0,0));
+        assert_eq!(ids, big_data.get_range_row_ids(0, 0));
         ids.remove(0);
-        assert_eq!(ids, big_data.get_range_row_ids(2,3));
+        assert_eq!(ids, big_data.get_range_row_ids(2, 3));
+    }
+    #[test]
+    fn remove() {
+        let mut big_data = BigData::new();
+        big_data.remove("0");
+        insert_data(&mut big_data, "a", &1);
+        assert_eq!(Some(1), big_data.get_time_index("a"));
+        big_data.remove("a");
+        assert_eq!(None, big_data.get_time_index("a"));
+        assert_eq!(None, big_data.get("a"));
+        let ids: Vec<&str> = Vec::new();
+        assert_eq!(ids, big_data.get_row_ids(1));
+    }
+    #[test]
+    fn remove_row_ids() {
+        let mut big_data = BigData::new();
+        big_data.remove_row_ids(0, 10);
+        insert_data(&mut big_data, "0", &11);
+        insert_data(&mut big_data, "1", &1);
+        let mut ids: Vec<&str> = Vec::new();
+        ids.push("1");
+        ids.push("0");
+        assert_eq!(ids, big_data.get_range_row_ids(0, 11));
+        big_data.remove_row_ids(0, 10);
+        ids.remove(0);
+        assert_eq!(ids, big_data.get_range_row_ids(0, 11));
+        big_data.remove_row_ids(11, 11);
+        ids.remove(0);
+        assert_eq!(ids, big_data.get_range_row_ids(0, 11));
+    }
+    #[test]
+    fn clear() {
+        let mut big_data = BigData::new();
+        big_data.clear();
+        insert_data(&mut big_data, "a", &1);
+        big_data.clear();
+        assert_eq!(None, big_data.get("a"));
+        let mut ids: Vec<&str> = vec![];
+        assert_eq!(ids, big_data.get_row_ids(1));
+        assert_eq!(None, big_data.get_time_index("a"));
+    }
+    #[test]
+    fn len_row_ids() {
+        let mut big_data = BigData::new();
+        insert_data(&mut big_data, "a", &0);
+        insert_data(&mut big_data, "b", &1);
+        assert_eq!(2, big_data.len());
+        assert_eq!(1, big_data.len_row_ids(0));
+        assert_eq!(1, big_data.len_row_ids(1));
+        insert_data(&mut big_data, "b", &0);
+        assert_eq!(2, big_data.len_row_ids(0));
+        assert_eq!(0, big_data.len_row_ids(1));
+    }
+    #[test]
+    fn len_range_row_ids() {
+        let mut big_data = BigData::new();
+        insert_data(&mut big_data, "a", &0);
+        insert_data(&mut big_data, "b", &1);
+        assert_eq!(2, big_data.len_range_row_ids(0, 1));
+        insert_data(&mut big_data, "b", &0);
+        assert_eq!(2, big_data.len_range_row_ids(0, 0));
+        insert_data(&mut big_data, "c", &5);
+        assert_eq!(2, big_data.len_range_row_ids(0, 4));
+        assert_eq!(3, big_data.len_range_row_ids(0, 5));
+    }
+    #[test]
+    fn update_elem() {
+        let mut big_data = BigData::new();
+        // single element
+        let row = RowData::new(RowTerm::Integer(0), 1);
+        big_data.insert("a", row);
+        assert_eq!(
+            true,
+            big_data.update_elem(
+                "a",
+                RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(1)])
+            )
+        );
+        assert_eq!(
+            Some(&RowData::new(RowTerm::Integer(1), 1)),
+            big_data.get("a")
+        );
+        // out scope
+        assert_eq!(
+            false,
+            big_data.update_elem(
+                "a",
+                RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Integer(2)])
+            )
+        );
+        assert_eq!(
+            Some(&RowData::new(RowTerm::Integer(1), 1)),
+            big_data.get("a")
+        );
+
+        // update tuple
+        big_data.clear();
+        let row = RowData::new(
+            RowTerm::Tuple(vec![
+                RowTerm::Integer(0),
+                RowTerm::Atom("a".to_string()),
+                RowTerm::Bitstring("b".to_string()),
+            ]),
+            1,
+        );
+        big_data.insert("a", row);
+        big_data.update_elem(
+            "a",
+            RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(1)]),
+        );
+        assert_eq!(
+            Some(&RowData::new(
+                RowTerm::Tuple(vec![
+                    RowTerm::Integer(1),
+                    RowTerm::Atom("a".to_string()),
+                    RowTerm::Bitstring("b".to_string())
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
+
+        big_data.update_elem(
+            "a",
+            RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("1".to_string())]),
+        );
+
+        assert_eq!(
+            Some(&RowData::new(
+                RowTerm::Tuple(vec![
+                    RowTerm::Integer(1),
+                    RowTerm::Atom("1".to_string()),
+                    RowTerm::Bitstring("b".to_string())
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
+        assert_eq!(
+            false,
+            big_data.update_elem(
+                "a",
+                RowTerm::Tuple(vec![RowTerm::Integer(3), RowTerm::Atom("1".to_string())]),
+            )
+        );
+
+        assert_eq!(
+            Some(&RowData::new(
+                RowTerm::Tuple(vec![
+                    RowTerm::Integer(1),
+                    RowTerm::Atom("1".to_string()),
+                    RowTerm::Bitstring("b".to_string())
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
+
+        // update list
+        assert_eq!(
+            true,
+            big_data.update_elem(
+                "a",
+                RowTerm::List(vec![
+                    RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("2".to_string())]),
+                    RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(2)]),
+                    RowTerm::Tuple(vec![
+                        RowTerm::Integer(2),
+                        RowTerm::Bitstring("c".to_string())
+                    ])
+                ])
+            )
+        );
+        assert_eq!(
+            Some(&RowData::new(
+                RowTerm::Tuple(vec![
+                    RowTerm::Integer(2),
+                    RowTerm::Atom("2".to_string()),
+                    RowTerm::Bitstring("c".to_string())
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
     }
 }
