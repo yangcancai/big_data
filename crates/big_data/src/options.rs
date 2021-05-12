@@ -2,7 +2,7 @@ use rustler::{Decoder, NifResult, Term};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-pub struct Nifbig_dataOptions {
+pub struct NifBigDataOptions {
     pub bitmap_size: Option<usize>,
     pub items_count: Option<usize>,
     pub capacity: Option<usize>,
@@ -10,9 +10,9 @@ pub struct Nifbig_dataOptions {
     pub fp_rate: Option<f64>,
 }
 
-impl Default for Nifbig_dataOptions {
-    fn default() -> Nifbig_dataOptions {
-        Nifbig_dataOptions {
+impl Default for NifBigDataOptions {
+    fn default() -> NifBigDataOptions {
+        NifBigDataOptions {
             bitmap_size: None,
             items_count: None,
             capacity: None,
@@ -22,7 +22,7 @@ impl Default for Nifbig_dataOptions {
     }
 }
 
-impl<'a> Decoder<'a> for Nifbig_dataOptions {
+impl<'a> Decoder<'a> for NifBigDataOptions {
     fn decode(term: Term<'a>) -> NifResult<Self> {
         let mut opts = Self::default();
         use rustler::{Error, MapIterator};

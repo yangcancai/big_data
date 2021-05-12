@@ -10,7 +10,7 @@ use rustler::Encoder;
 use rustler::Env;
 use rustler::NifResult;
 use rustler::Term;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Bound::Included;
@@ -206,9 +206,8 @@ impl BigData {
                         // tuple
                         RowTerm::Tuple(row_data_tuple) => {
                             if let RowTerm::Integer(i) = tuple[0] {
-                                let index = i as usize;
-                                if row_data_tuple.len() > index && index >= 0 {
-                                    row_data_tuple[index] += tuple[1].clone();
+                                if i>= 0 && row_data_tuple.len() as i64 > i{
+                                    row_data_tuple[i as usize] += tuple[1].clone();
                                     return vec![true];
                                 } else {
                                     return vec![false];
@@ -220,9 +219,8 @@ impl BigData {
                         // list
                         RowTerm::List(row_data_list) => {
                             if let RowTerm::Integer(i) = tuple[0] {
-                                let index = i as usize;
-                                if row_data_list.len() > index && index >= 0 {
-                                    row_data_list[index] += tuple[1].clone();
+                                if row_data_list.len() as i64 > i && i >= 0 {
+                                    row_data_list[i as usize] += tuple[1].clone();
                                     return vec![true];
                                 } else {
                                     return vec![false];
@@ -274,9 +272,8 @@ impl BigData {
                         // tuple
                         RowTerm::Tuple(row_data_tuple) => {
                             if let RowTerm::Integer(i) = tuple[0] {
-                                let index = i as usize;
-                                if row_data_tuple.len() > index && index >= 0 {
-                                    row_data_tuple[index] = tuple[1].clone();
+                                if row_data_tuple.len() as i64 > i && i >= 0 {
+                                    row_data_tuple[i as usize] = tuple[1].clone();
                                     return vec![true];
                                 } else {
                                     return vec![false];
@@ -288,9 +285,8 @@ impl BigData {
                         // list
                         RowTerm::List(row_data_list) => {
                             if let RowTerm::Integer(i) = tuple[0] {
-                                let index = i as usize;
-                                if row_data_list.len() > index && index >= 0 {
-                                    row_data_list[index] = tuple[1].clone();
+                                if row_data_list.len() as i64 > i && i >= 0 {
+                                    row_data_list[i as usize] = tuple[1].clone();
                                     return vec![true];
                                 } else {
                                     return vec![false];
@@ -334,9 +330,8 @@ impl BigData {
                     match &row_data.term {
                         // tuple or list
                         RowTerm::List(row_data_tuple) | RowTerm::Tuple(row_data_tuple) => {
-                            let index = pos as usize;
-                            if row_data_tuple.len() > index && index >= 0 {
-                                return vec![&row_data_tuple[index]];
+                            if row_data_tuple.len() as i64 > pos && pos >= 0 {
+                                return vec![&row_data_tuple[pos as usize]];
                             }
                         }
                         // a single elem

@@ -10,22 +10,22 @@ use big_data::BigData;
 use big_data::RowData;
 use big_data::RowTerm;
 use big_data::Time;
-use options::Nifbig_dataOptions;
+use options::NifBigDataOptions;
 use rustler::types::tuple::get_tuple;
 use rustler::types::tuple::make_tuple;
-use rustler::{lazy_static::lazy::Lazy, resource::ResourceArc};
+use rustler::{resource::ResourceArc};
 use rustler::{Binary, Encoder, Env, NifResult, OwnedBinary, Term};
 // =================================================================================================
 // resource
 // =================================================================================================
-struct Nifbig_data {
+struct NifBigData {
     data: HashMap<String, BigData>,
 }
-impl Nifbig_data {
+impl NifBigData {
     // create
-    fn new(_: Nifbig_dataOptions) -> Result<Self, String> {
+    fn new(_: NifBigDataOptions) -> Result<Self, String> {
         let d = HashMap::new();
-        Ok(Nifbig_data { data: d })
+        Ok(NifBigData { data: d })
     }
     // insert
     fn insert(&mut self, big_key: &str, row_data: RowData) {
@@ -126,26 +126,26 @@ impl Nifbig_data {
     }
 }
 #[repr(transparent)]
-struct Nifbig_dataResource(RwLock<Nifbig_data>);
+struct NifBigDataResource(RwLock<NifBigData>);
 
-impl Nifbig_dataResource {
-    fn read(&self) -> RwLockReadGuard<'_, Nifbig_data> {
+impl NifBigDataResource {
+    fn read(&self) -> RwLockReadGuard<'_, NifBigData> {
         self.0.read().unwrap()
     }
 
-    fn write(&self) -> RwLockWriteGuard<'_, Nifbig_data> {
+    fn write(&self) -> RwLockWriteGuard<'_, NifBigData> {
         self.0.write().unwrap()
     }
 }
 
-impl From<Nifbig_data> for Nifbig_dataResource {
-    fn from(other: Nifbig_data) -> Self {
-        Nifbig_dataResource(RwLock::new(other))
+impl From<NifBigData> for NifBigDataResource {
+    fn from(other: NifBigData) -> Self {
+        NifBigDataResource(RwLock::new(other))
     }
 }
 
 pub fn on_load(env: Env, _load_info: Term) -> bool {
-    rustler::resource!(Nifbig_dataResource, env);
+    rustler::resource!(NifBigDataResource, env);
     true
 }
 // =================================================================================================
@@ -153,14 +153,14 @@ pub fn on_load(env: Env, _load_info: Term) -> bool {
 // =================================================================================================
 
 #[rustler::nif]
-fn new<'a>(env: Env<'a>, opts: Nifbig_dataOptions) -> NifResult<Term<'a>> {
-    let rs = Nifbig_data::new(opts).map_err(|e| rustler::error::Error::Term(Box::new(e)))?;
-    Ok((ok(), ResourceArc::new(Nifbig_dataResource::from(rs))).encode(env))
+fn new<'a>(env: Env<'a>, opts: NifBigDataOptions) -> NifResult<Term<'a>> {
+    let rs = NifBigData::new(opts).map_err(|e| rustler::error::Error::Term(Box::new(e)))?;
+    Ok((ok(), ResourceArc::new(NifBigDataResource::from(rs))).encode(env))
 }
 #[rustler::nif]
 fn insert<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_data: RowData,
 ) -> NifResult<Term<'a>> {
@@ -171,7 +171,7 @@ fn insert<'a>(
 #[rustler::nif]
 fn update_elem<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
     elem_spec: RowTerm,
@@ -187,7 +187,7 @@ fn update_elem<'a>(
 #[rustler::nif]
 fn update_counter<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
     elem_spec: RowTerm,
@@ -203,7 +203,7 @@ fn update_counter<'a>(
 #[rustler::nif]
 fn get_row<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
@@ -220,99 +220,74 @@ fn get_row<'a>(
 #[rustler::nif]
 fn get<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get(u8_to_string(&big_key).as_ref()) {
-        let list = rs.to_list();
-        Ok((list).encode(env))
-    } else {
-        let list: Vec<RowData> = Vec::new();
-        Ok((list).encode(env))
-    }
+    let list = read.to_list(u8_to_string(&big_key).as_ref()); 
+    Ok((list).encode(env))
 }
 #[rustler::nif]
 fn get_range<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     start_time: Time,
     end_time: Time,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get(u8_to_string(&big_key).as_ref()) {
-        let list = rs.get_range(start_time.0, end_time.0);
-        Ok((list).encode(env))
-    } else {
-        let list: Vec<RowData> = Vec::new();
-        Ok((list).encode(env))
-    }
+    let list = read.get_range(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
+    Ok((list).encode(env))
 }
 
 #[rustler::nif]
 fn get_range_row_ids<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     start_time: Time,
     end_time: Time,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get(u8_to_string(&big_key).as_ref()) {
-        let list = rs.get_range_row_ids(start_time.0, end_time.0);
-        Ok((list).encode(env))
-    } else {
-        let list: Vec<RowData> = Vec::new();
-        Ok((list).encode(env))
-    }
+    let list = read.get_range_row_ids(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
+    Ok((list).encode(env))
 }
 #[rustler::nif]
 fn get_row_ids<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     time: Time,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get(u8_to_string(&big_key).as_ref()) {
-        let list = rs.get_row_ids(time.0);
-        Ok((list).encode(env))
-    } else {
-        let list: Vec<RowData> = Vec::new();
-        Ok((list).encode(env))
-    }
+    let list = read.get_row_ids(u8_to_string(&big_key).as_ref(), time.0);
+    Ok((list).encode(env))
 }
 #[rustler::nif]
 fn get_time_index<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get(u8_to_string(&big_key).as_ref()) {
-        if let Some(time) = rs.get_time_index(u8_to_string(&row_id).as_ref()) {
+    if let Some(time) = read.get_time_index(u8_to_string(&big_key).as_ref(), u8_to_string(&row_id).as_ref()) {
             let i: i64 = time as i64;
             Ok(i.encode(env))
         } else {
             Ok(atoms::notfound().encode(env))
         }
-    } else {
-        let list: Vec<RowData> = Vec::new();
-        Ok((list).encode(env))
-    }
 }
 #[rustler::nif]
 fn lookup_elem<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
     elem_spec: RowTerm,
 ) -> NifResult<Term<'a>> {
-    let mut write = resource.write();
-    let term = write.lookup_elem(
+    let read = resource.read();
+    let term = read.lookup_elem(
         u8_to_string(&big_key).as_ref(),
         u8_to_string(&row_id).as_ref(),
         elem_spec,
@@ -321,7 +296,7 @@ fn lookup_elem<'a>(
     Ok(make_tuple(env, terms.as_ref()).encode(env))
 }
 #[rustler::nif]
-fn clear<'a>(env: Env<'a>, resource: ResourceArc<Nifbig_dataResource>) -> NifResult<Term<'a>> {
+fn clear<'a>(env: Env<'a>, resource: ResourceArc<NifBigDataResource>) -> NifResult<Term<'a>> {
     resource.write().clear();
     Ok(ok().encode(env))
 }
@@ -329,7 +304,7 @@ fn clear<'a>(env: Env<'a>, resource: ResourceArc<Nifbig_dataResource>) -> NifRes
 #[rustler::nif]
 fn remove<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     resource.write().remove(u8_to_string(&big_key).as_ref());
@@ -338,7 +313,7 @@ fn remove<'a>(
 #[rustler::nif]
 fn remove_row<'a>(
     env: Env<'a>,
-    resource: ResourceArc<Nifbig_dataResource>,
+    resource: ResourceArc<NifBigDataResource>,
     big_key: LazyBinary<'a>,
     row_id: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
