@@ -19,4 +19,4 @@ _checkouts/
 crates/big_data/.vscode/
 crates/big_data/target
 crates/big_data/libpath
-crates/libbig_data.so
+priv/libbig_data.so
