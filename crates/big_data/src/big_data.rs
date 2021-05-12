@@ -1,17 +1,25 @@
+use atoms;
+use nif::convert_to_integer;
+use nif::convert_to_row_term;
+use ordermap::set::OrderSet;
+use rustler::error::Error;
+use rustler::types::atom::Atom;
+use rustler::types::tuple::make_tuple;
+use rustler::Decoder;
+use rustler::Encoder;
+use rustler::Env;
+use rustler::NifResult;
+use rustler::Term;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Add;
 use std::ops::AddAssign;
-use atoms;
-use ordermap::set::OrderSet;
-use rustler::types::atom::Atom;
-use rustler::types::tuple::make_tuple;
-use rustler::Encoder;
-use rustler::Env;
-use rustler::Term;
 use std::ops::Bound::Included;
 
+pub struct Time(pub u128);
 #[derive(Debug, Clone)]
 pub struct RowData {
+    // id
+    row_id: String,
     // RowTerm
     term: RowTerm,
     // timestamp
@@ -48,8 +56,9 @@ pub enum RowTerm {
     Bitstring(String),
 }
 impl RowData {
-    pub fn new(row_term: RowTerm, time: u128) -> Self {
+    pub fn new(row_id: &str, row_term: RowTerm, time: u128) -> Self {
         RowData {
+            row_id: row_id.to_string(),
             term: row_term,
             time: time,
         }
@@ -157,9 +166,10 @@ impl BigData {
     ///    assert_eq!(None, insert_result);
     /// ```
     ///
-    pub fn insert(&mut self, row_id: &str, row_data: RowData) -> Option<RowData> {
+    pub fn insert(&mut self, row_data: RowData) -> Option<RowData> {
         let time = row_data.time;
-        let rs = match self.rows.insert(row_id.to_string(), row_data) {
+        let row_id = row_data.row_id.clone();
+        let rs = match self.rows.insert(row_id.clone(), row_data) {
             // first insert
             None => None,
             // second insert
@@ -167,16 +177,16 @@ impl BigData {
                 let old_time = r.time;
                 // clear old time_index
                 if let Some(set) = self.time_index.get_mut(&old_time) {
-                    set.remove(row_id);
+                    set.remove(&row_id);
                 }
                 Some(r)
             }
         };
         if let Some(set) = self.time_index.get_mut(&time) {
-            set.insert(row_id.to_string());
+            set.insert(row_id);
         } else {
             let mut set = OrderSet::new();
-            set.insert(row_id.to_string());
+            set.insert(row_id);
             self.time_index.insert(time, Box::new(set));
         }
         rs
@@ -187,7 +197,7 @@ impl BigData {
     ///
     ///   Please see below test fn update_counter
     ///
-    pub fn update_counter(&mut self, row_id: &str, elem_spec: RowTerm) -> bool {
+    pub fn update_counter(&mut self, row_id: &str, elem_spec: RowTerm) -> Vec<bool> {
         match elem_spec {
             // elem_spec = {pos, incr}
             RowTerm::Tuple(tuple) => {
@@ -198,14 +208,13 @@ impl BigData {
                             if let RowTerm::Integer(i) = tuple[0] {
                                 let index = i as usize;
                                 if row_data_tuple.len() > index && index >= 0 {
-                                    row_data_tuple[index] +=
-                                        tuple[1].clone();
-                                    return true;
+                                    row_data_tuple[index] += tuple[1].clone();
+                                    return vec![true];
                                 } else {
-                                    return false;
+                                    return vec![false];
                                 }
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                         // list
@@ -214,37 +223,39 @@ impl BigData {
                                 let index = i as usize;
                                 if row_data_list.len() > index && index >= 0 {
                                     row_data_list[index] += tuple[1].clone();
-                                    return true;
+                                    return vec![true];
                                 } else {
-                                    return false;
+                                    return vec![false];
                                 }
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                         // just single element
                         _ => {
                             if RowTerm::Integer(0) == tuple[0] {
                                 row_data.term += tuple[1].clone();
-                                return true;
+                                return vec![true];
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                     }
                 } else {
-                    return false;
+                    return vec![false];
                 }
             }
             // elem_spec = [{pos, elem}, ...]
             RowTerm::List(list) => {
+                let mut rs: Vec<bool> = Vec::new();
                 for pos_elem in list {
-                    self.update_elem(row_id, pos_elem);
+                    let b = self.update_counter(row_id, pos_elem);
+                    rs.push(b[0]);
                 }
-                return true;
+                return rs;
             }
             _ => {
-                return false;
+                return vec![false];
             }
         }
     }
@@ -254,7 +265,7 @@ impl BigData {
     ///
     /// Please see below test fn update_elem
     ///
-    pub fn update_elem(&mut self, row_id: &str, elem_spec: RowTerm) -> bool {
+    pub fn update_elem(&mut self, row_id: &str, elem_spec: RowTerm) -> Vec<bool> {
         match elem_spec {
             // elem_spec = {pos, elem}
             RowTerm::Tuple(tuple) => {
@@ -266,12 +277,12 @@ impl BigData {
                                 let index = i as usize;
                                 if row_data_tuple.len() > index && index >= 0 {
                                     row_data_tuple[index] = tuple[1].clone();
-                                    return true;
+                                    return vec![true];
                                 } else {
-                                    return false;
+                                    return vec![false];
                                 }
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                         // list
@@ -280,39 +291,77 @@ impl BigData {
                                 let index = i as usize;
                                 if row_data_list.len() > index && index >= 0 {
                                     row_data_list[index] = tuple[1].clone();
-                                    return true;
+                                    return vec![true];
                                 } else {
-                                    return false;
+                                    return vec![false];
                                 }
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                         // just single element
                         _ => {
                             if RowTerm::Integer(0) == tuple[0] {
                                 row_data.term = tuple[1].clone();
-                                return true;
+                                return vec![true];
                             } else {
-                                return false;
+                                return vec![false];
                             }
                         }
                     }
                 } else {
-                    return false;
+                    return vec![false];
                 }
             }
             // elem_spec = [{pos, elem}, ...]
             RowTerm::List(list) => {
+                let mut rs: Vec<bool> = Vec::new();
                 for pos_elem in list {
-                    self.update_elem(row_id, pos_elem);
+                    let vec_bool = self.update_elem(row_id, pos_elem);
+                    rs.push(vec_bool[0]);
                 }
-                return true;
+                return rs;
             }
             _ => {
-                return false;
+                return vec![false];
             }
         }
+    }
+    pub fn lookup_elem(&self, row_id: &str, elem_spec: RowTerm) -> Vec<&RowTerm> {
+        match elem_spec {
+            RowTerm::Integer(pos) => {
+                if let Some(row_data) = self.rows.get(row_id) {
+                    match &row_data.term {
+                        // tuple or list
+                        RowTerm::List(row_data_tuple) | RowTerm::Tuple(row_data_tuple) => {
+                            let index = pos as usize;
+                            if row_data_tuple.len() > index && index >= 0 {
+                                return vec![&row_data_tuple[index]];
+                            }
+                        }
+                        // a single elem
+                        single => {
+                            if pos == 0 {
+                                return vec![single];
+                            }
+                        }
+                    }
+                }
+            }
+            RowTerm::Tuple(list) | RowTerm::List(list) => {
+                let mut rs: Vec<&RowTerm> = Vec::new();
+                for pos_elem in list {
+                    let vec = self.lookup_elem(row_id, pos_elem);
+                    if vec.len() > 0 {
+                        rs.push(vec[0]);
+                    }
+                }
+                return rs;
+            }
+            _ => {}
+        }
+        let l: Vec<&RowTerm> = Vec::new();
+        return l;
     }
     /// Get a RowData From BigData, such as a key value
     ///
@@ -451,6 +500,35 @@ impl BigData {
         }
         r
     }
+    /// BigData to list, sort by time
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut big_data = BigData::new();
+    /// let d = RowData::new(RowTerm::Integer(0), 10);
+    /// big_data.insert("a",d.clone());
+    /// let mut list = Vec::new();
+    /// list.push(&d);
+    /// assert_eq!(list, big_data.to_list());
+    /// let e = RowData::new(RowTerm::Integer(0), 1);
+    /// big_data.insert("b",e.clone());
+    /// list.clear();
+    /// list.push(&e);
+    /// list.push(&d);
+    /// assert_eq!(list, big_data.to_list(///
+    /// ```
+    pub fn to_list(&self) -> Vec<&RowData> {
+        let mut list = Vec::new();
+        for (_, set) in self.time_index.iter() {
+            for id in set.as_ref() {
+                if let Some(v) = self.rows.get(id) {
+                    list.push(v)
+                }
+            }
+        }
+        list
+    }
     /// Remove RowId
     ///
     /// # Examples
@@ -527,6 +605,14 @@ impl BigData {
         }
     }
 }
+impl RowTerm {
+    fn is_integer(&self) -> bool {
+        match self {
+            RowTerm::Integer(_) => true,
+            _ => false,
+        }
+    }
+}
 impl Add for RowTerm {
     type Output = Self;
     fn add(self, other: Self) -> Self {
@@ -534,7 +620,7 @@ impl Add for RowTerm {
             RowTerm::Integer(self_inner) => {
                 if let RowTerm::Integer(other_inner) = other {
                     RowTerm::Integer(other_inner + self_inner)
-                }else{
+                } else {
                     self
                 }
             }
@@ -544,8 +630,8 @@ impl Add for RowTerm {
 }
 impl AddAssign for RowTerm {
     fn add_assign(&mut self, other: Self) {
-      let new =  self.clone().add(other);
-       *self =   new.clone();
+        let new = self.clone().add(other);
+        *self = new.clone();
     }
 }
 
@@ -626,6 +712,71 @@ impl Encoder for RowTerm {
         }
     }
 }
+impl<'a> Decoder<'a> for RowTerm {
+    fn decode(term: Term<'a>) -> NifResult<Self> {
+        if let Some(v) = convert_to_row_term(&term) {
+            Ok(v)
+        } else {
+            Err(Error::BadArg)
+        }
+    }
+}
+impl Encoder for RowData {
+    fn encode<'a>(&self, env: Env<'a>) -> Term<'a> {
+        let row_data = RowTerm::Tuple(vec![
+            RowTerm::Atom("row_data".to_string()),
+            RowTerm::Bitstring(self.row_id.clone()),
+            self.term.clone(),
+            RowTerm::Integer(self.time as i64),
+        ]);
+        row_data.encode(env)
+    }
+}
+impl<'a> Decoder<'a> for Time {
+    fn decode(term: Term<'a>) -> NifResult<Self> {
+        if let Some(i) = convert_to_integer(&term) {
+            Ok(Time(i))
+        } else {
+            Err(Error::BadArg)
+        }
+    }
+}
+
+impl<'a> Decoder<'a> for RowData {
+    fn decode(term: Term<'a>) -> NifResult<Self> {
+        if let Some(row) = convert_to_row_term(&term) {
+            match row {
+                RowTerm::Tuple(tuple) => {
+                    if tuple.len() == 4
+                        && tuple[0] == RowTerm::Atom("row_data".to_string())
+                        && tuple[3].is_integer()
+                    {
+                        if let RowTerm::Integer(time) = tuple[3] {
+                            match &tuple[1] {
+                                RowTerm::Integer(row_id) => {
+                                    let row_data = RowData::new(
+                                        &row_id.to_string(),
+                                        tuple[2].clone(),
+                                        time as u128,
+                                    );
+                                    return Ok(row_data);
+                                }
+                                RowTerm::Bitstring(row_id) => {
+                                    let row_data =
+                                        RowData::new(&row_id, tuple[2].clone(), time as u128);
+                                    return Ok(row_data);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Err(Error::BadArg)
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -635,15 +786,15 @@ mod test {
         let mut big_data = BigData::new();
         let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
         // first insert
-        let insert_result = big_data.insert("a", RowData::new(r.clone(), 1234567890));
+        let insert_result = big_data.insert(RowData::new("a", r.clone(), 1234567890));
         assert_eq!(Some(1234567890), big_data.get_time_index("a"));
         assert_eq!(vec!["a"], big_data.get_row_ids(1234567890));
         assert_eq!(None, insert_result);
         // second insert
-        let insert_result = big_data.insert("a", RowData::new(r.clone(), 1234567891));
+        let insert_result = big_data.insert(RowData::new("a", r.clone(), 1234567891));
         assert_eq!(Some(1234567891), big_data.get_time_index("a"));
         assert_eq!(vec!["a"], big_data.get_row_ids(1234567891));
-        assert_eq!(Some(RowData::new(r, 1234567890)), insert_result);
+        assert_eq!(Some(RowData::new("a", r, 1234567890)), insert_result);
         //
         assert_eq!(Some(1234567891), big_data.get_time_index("a"));
         let aa: Vec<&str> = Vec::new();
@@ -654,14 +805,14 @@ mod test {
     fn get() {
         let mut big_data = BigData::new();
         let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
-        let row1 = RowData::new(r.clone(), 1234567890);
+        let row1 = RowData::new("a", r.clone(), 1234567890);
         assert_eq!(None, big_data.get("a"));
         // none time_index
         assert_eq!(None, big_data.get_time_index("a"));
         let row_ids: Vec<&String> = Vec::new();
         // none row_ids
         assert_eq!(row_ids, big_data.get_row_ids(1234567890));
-        big_data.insert("a", row1.clone());
+        big_data.insert(row1.clone());
         let row = big_data.get("a");
         assert_eq!(Some(1234567890), big_data.get_time_index("a"));
         let row_ids = vec!["a"];
@@ -670,8 +821,8 @@ mod test {
     }
     fn insert_data(big_data: &mut BigData, row_id: &str, time: &u128) {
         let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
-        let row1 = RowData::new(r.clone(), *time);
-        big_data.insert(row_id, row1);
+        let row1 = RowData::new(row_id, r.clone(), *time);
+        big_data.insert(row1);
     }
     #[test]
     fn get_time_index() {
@@ -701,8 +852,8 @@ mod test {
         let vec_data1: Vec<&RowData> = Vec::new();
         assert_eq!(vec_data1, big_data.get_range(0, 99999999999999));
         let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
-        let row1 = RowData::new(r, 1234567890);
-        big_data.insert("a", row1.clone());
+        let row1 = RowData::new("a", r, 1234567890);
+        big_data.insert(row1.clone());
         let vec_data = big_data.get_range(0, 1234567890);
         let vec_data1 = vec![&row1];
         assert_eq!(vec_data1, vec_data.clone());
@@ -711,8 +862,8 @@ mod test {
         assert_eq!(vec_data1, vec_data);
         // insert other RowData
         let r = RowTerm::Tuple(vec![RowTerm::List(vec![RowTerm::Atom("b".to_string())])]);
-        let other = RowData::new(r, 1);
-        big_data.insert("b", other.clone());
+        let other = RowData::new("b", r, 1);
+        big_data.insert(other.clone());
         let vec_data = big_data.get_range(0, 1234567890);
         let vec_data1 = vec![&other, &row1];
         assert_eq!(vec_data1, vec_data)
@@ -774,7 +925,7 @@ mod test {
         insert_data(&mut big_data, "a", &1);
         big_data.clear();
         assert_eq!(None, big_data.get("a"));
-        let mut ids: Vec<&str> = vec![];
+        let ids: Vec<&str> = vec![];
         assert_eq!(ids, big_data.get_row_ids(1));
         assert_eq!(None, big_data.get_time_index("a"));
     }
@@ -806,35 +957,36 @@ mod test {
     fn update_elem() {
         let mut big_data = BigData::new();
         // single element
-        let row = RowData::new(RowTerm::Integer(0), 1);
-        big_data.insert("a", row);
+        let row = RowData::new("a", RowTerm::Integer(0), 1);
+        big_data.insert(row);
         assert_eq!(
-            true,
+            vec![true],
             big_data.update_elem(
                 "a",
                 RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(1)])
             )
         );
         assert_eq!(
-            Some(&RowData::new(RowTerm::Integer(1), 1)),
+            Some(&RowData::new("a", RowTerm::Integer(1), 1)),
             big_data.get("a")
         );
         // out scope
         assert_eq!(
-            false,
+            vec![false],
             big_data.update_elem(
                 "a",
                 RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Integer(2)])
             )
         );
         assert_eq!(
-            Some(&RowData::new(RowTerm::Integer(1), 1)),
+            Some(&RowData::new("a", RowTerm::Integer(1), 1)),
             big_data.get("a")
         );
 
         // update tuple
         big_data.clear();
         let row = RowData::new(
+            "a",
             RowTerm::Tuple(vec![
                 RowTerm::Integer(0),
                 RowTerm::Atom("a".to_string()),
@@ -842,13 +994,14 @@ mod test {
             ]),
             1,
         );
-        big_data.insert("a", row);
+        big_data.insert(row);
         big_data.update_elem(
             "a",
             RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(1)]),
         );
         assert_eq!(
             Some(&RowData::new(
+                "a",
                 RowTerm::Tuple(vec![
                     RowTerm::Integer(1),
                     RowTerm::Atom("a".to_string()),
@@ -866,6 +1019,7 @@ mod test {
 
         assert_eq!(
             Some(&RowData::new(
+                "a",
                 RowTerm::Tuple(vec![
                     RowTerm::Integer(1),
                     RowTerm::Atom("1".to_string()),
@@ -876,7 +1030,7 @@ mod test {
             big_data.get("a")
         );
         assert_eq!(
-            false,
+            vec![false],
             big_data.update_elem(
                 "a",
                 RowTerm::Tuple(vec![RowTerm::Integer(3), RowTerm::Atom("1".to_string())]),
@@ -885,6 +1039,7 @@ mod test {
 
         assert_eq!(
             Some(&RowData::new(
+                "a",
                 RowTerm::Tuple(vec![
                     RowTerm::Integer(1),
                     RowTerm::Atom("1".to_string()),
@@ -897,7 +1052,7 @@ mod test {
 
         // update list
         assert_eq!(
-            true,
+            vec![true, true, true],
             big_data.update_elem(
                 "a",
                 RowTerm::List(vec![
@@ -912,6 +1067,7 @@ mod test {
         );
         assert_eq!(
             Some(&RowData::new(
+                "a",
                 RowTerm::Tuple(vec![
                     RowTerm::Integer(2),
                     RowTerm::Atom("2".to_string()),
@@ -921,5 +1077,101 @@ mod test {
             )),
             big_data.get("a")
         );
+        assert_eq!(
+            vec![true],
+            big_data.update_elem(
+                "a",
+                RowTerm::List(vec![RowTerm::Tuple(vec![
+                    RowTerm::Integer(0),
+                    RowTerm::Tuple(vec![
+                        RowTerm::Tuple(vec![RowTerm::Atom("a".to_string()), RowTerm::Atom("b".to_string())]),
+                        RowTerm::List(vec![RowTerm::Integer(1), RowTerm::Integer(1), RowTerm::Integer(1)]),
+                        RowTerm::Integer(1),
+                        RowTerm::Bitstring("hello".to_string())
+                    ])
+                ]),])
+            )
+        );
+
+        assert_eq!(
+            Some(&RowData::new(
+                "a",
+                RowTerm::Tuple(vec![
+                    RowTerm::Tuple(vec![
+                        RowTerm::Tuple(vec![RowTerm::Atom("a".to_string()), RowTerm::Atom("b".to_string())]),
+                        RowTerm::List(vec![RowTerm::Integer(1), RowTerm::Integer(1), RowTerm::Integer(1)]),
+                        RowTerm::Integer(1),
+                        RowTerm::Bitstring("hello".to_string())
+                    ]),
+                    RowTerm::Atom("2".to_string()),
+                    RowTerm::Bitstring("c".to_string())
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
+    }
+    #[test]
+    fn update_counter() {
+        let mut big_data = BigData::new();
+        // single element
+        let row = RowData::new("a", RowTerm::Integer(1), 1);
+        big_data.insert(row);
+        assert_eq!(
+            vec![true],
+            big_data.update_counter(
+                "a",
+                RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(2)])
+            )
+        );
+        assert_eq!(
+            Some(&RowData::new("a", RowTerm::Integer(3), 1)),
+            big_data.get("a")
+        );
+        // update tuple
+        big_data.clear();
+        let row = RowData::new(
+            "a",
+            RowTerm::Tuple(vec![
+                RowTerm::Integer(1),
+                RowTerm::Atom("a".to_string()),
+                RowTerm::Bitstring("b".to_string()),
+                RowTerm::Integer(2),
+            ]),
+            1,
+        );
+        big_data.insert(row);
+        big_data.update_counter(
+            "a",
+            RowTerm::Tuple(vec![RowTerm::Integer(0), RowTerm::Integer(11)]),
+        );
+        assert_eq!(
+            Some(&RowData::new(
+                "a",
+                RowTerm::Tuple(vec![
+                    RowTerm::Integer(12),
+                    RowTerm::Atom("a".to_string()),
+                    RowTerm::Bitstring("b".to_string()),
+                    RowTerm::Integer(2)
+                ]),
+                1
+            )),
+            big_data.get("a")
+        );
+    }
+    #[test]
+    fn to_list() {
+        let mut big_data = BigData::new();
+        let d = RowData::new("a", RowTerm::Integer(0), 10);
+        big_data.insert(d.clone());
+        let mut list = Vec::new();
+        list.push(&d);
+        assert_eq!(list, big_data.to_list());
+        let e = RowData::new("e", RowTerm::Integer(0), 1);
+        big_data.insert(e.clone());
+        list.clear();
+        list.push(&e);
+        list.push(&d);
+        assert_eq!(list, big_data.to_list());
     }
 }

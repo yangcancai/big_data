@@ -2,5 +2,6 @@ rustler::atoms! {
     ok,
     error,
     notfound,
-    undefined
+    undefined,
+    tuple_error
 }
