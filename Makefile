@@ -42,7 +42,7 @@ shell: epmd config
 	./rebar3 as test shell
 
 config: epmd
-	./tool.sh replace_config
+	# ./tool.sh replace_config
 
 dialyzer: epmd
 	./rebar3 do dialyzer
