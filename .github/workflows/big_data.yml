@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: erlang:22.3.4.1
+      image: rust:last
     steps:
     - uses: actions/checkout@v2
     - name: Clippy
