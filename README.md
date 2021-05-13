@@ -20,41 +20,58 @@ Safe Rust code for creating Erlang NIF to store big data
 ## Comand 
 ```shell
 ## suite test
-$ make ct
+$ make ct  
 sh crates/build_crates.sh clippy
     Finished dev [unoptimized + debuginfo] target(s) in 0.02s
 sh crates/build_crates.sh test
-    Finished test [unoptimized + debuginfo] target(s) in 0.01s
-     Running unittests (crates/big_data/target/debug/deps/big_data-b0003eb4ca1fc12e)
+    Finished test [unoptimized + debuginfo] target(s) in 0.02s
+     Running unittests (crates/big_data/target/debug/deps/big_data-f3da29e6da47f8c3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/big_data_test.rs (crates/big_data/target/debug/deps/big_data_test-f8d535b5018e2ef3)
 
 running 14 tests
-test big_data::test::get ... ok
-test big_data::test::clear ... ok
-test big_data::test::get_range ... ok
-test big_data::test::get_range_row_ids ... ok
-test big_data::test::get_row_ids ... ok
-test big_data::test::get_time_index ... ok
-test big_data::test::insert ... ok
-test big_data::test::len_range_row_ids ... ok
-test big_data::test::len_row_ids ... ok
-test big_data::test::to_list ... ok
-test big_data::test::update_counter ... ok
-test big_data::test::remove_row_ids ... ok
-test big_data::test::remove ... ok
-test big_data::test::update_elem ... ok
+test clear ... ok
+test get ... ok
+test get_time_index ... ok
+test get_row_ids ... ok
+test get_range ... ok
+test get_range_row_ids ... ok
+test insert ... ok
+test len_range_row_ids ... ok
+test len_row_ids ... ok
+test remove ... ok
+test to_list ... ok
+test remove_row_ids ... ok
+test update_counter ... ok
+test update_elem ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/big_data_test.rs (crates/big_data/target/debug/deps/big_data_test-53fe4a245ab43897)
+   Doc-tests big_data
 
-running 1 test
-test insert ... ok
+running 12 tests
+test src/big_data.rs - big_data::BigData::get (line 387) ... ok
+test src/big_data.rs - big_data::BigData::insert (line 90) ... ok
+test src/big_data.rs - big_data::BigData::len_range_row_ids (line 192) ... ok
+test src/big_data.rs - big_data::BigData::get_time_index (line 405) ... ok
+test src/big_data.rs - big_data::BigData::get_range (line 464) ... ok
+test src/big_data.rs - big_data::BigData::clear (line 129) ... ok
+test src/big_data.rs - big_data::BigData::get_range_row_ids (line 491) ... ok
+test src/big_data.rs - big_data::BigData::get_row_ids (line 429) ... ok
+test src/big_data.rs - big_data::BigData::len_row_ids (line 165) ... ok
+test src/big_data.rs - big_data::BigData::remove (line 556) ... ok
+test src/big_data.rs - big_data::BigData::remove_row_ids (line 591) ... ok
+test src/big_data.rs - big_data::BigData::to_list (line 526) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.51s
 
 ./rebar3 do ct --dir test/ct -v --config test/ct/ct.config --sys_config config/test.config
 ===> Verifying dependencies...
-    Finished release [optimized] target(s) in 0.01s
+    Finished release [optimized] target(s) in 0.02s
 ===> Analyzing applications...
 ===> Compiling big_data_nif
 ===> Running Common Test suites...
@@ -63,7 +80,7 @@ Common Test starting (cwd is /Users/admin/proj/rust/big_data_nif)
 
 
 
-CWD set to: "/Users/admin/proj/rust/big_data_nif/_build/test/logs/ct_run.nonode@nohost.2021-05-13_11.41.54"
+CWD set to: "/Users/admin/proj/rust/big_data_nif/_build/test/logs/ct_run.nonode@nohost.2021-05-13_15.54.32"
 
 TEST INFO: 1 test(s), 11 case(s) in 1 suite(s)
 
