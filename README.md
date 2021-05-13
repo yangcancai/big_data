@@ -245,3 +245,23 @@ ok
 21> big_data_nif:get(Ref,<<"player">>). 
 []
 ```
+
+## Bench
+
+```shell
+$ sh crates/build_crates.sh bench
+    Finished bench [optimized] target(s) in 0.02s
+     Running unittests (crates/big_data/target/release/deps/big_data-a47418a78ef79a70)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests (crates/big_data/target/release/deps/bench-2cb028b9ea72486c)
+
+running 2 tests
+test get    ... bench:         216 ns/iter (+/- 133)
+test insert ... bench:       1,160 ns/iter (+/- 141)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured
+```
