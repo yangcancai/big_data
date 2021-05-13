@@ -1,5 +1,8 @@
 # big_data_nif
 Safe Rust code for creating Erlang NIF to store big data 
+
+![CI](https://github.com/yangcancai/big_data/workflows/ci.yaml/badge.svg)
+
 ## Features
 
 * Sorted
