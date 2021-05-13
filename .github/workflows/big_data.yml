@@ -10,7 +10,7 @@ jobs:
     container:
       image: erlang:22.3.4.1
     steps:
-    - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     - run: rustup component add clippy
     - uses: actions/checkout@v2
     - name: Clippy
