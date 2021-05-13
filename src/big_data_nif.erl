@@ -3,7 +3,7 @@
 %% API
 -export([new/0, new/1, insert/3, get_row/3, get/2, get_range/4, get_range_row_ids/4,
          get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1, remove/2, remove_row/3,
-         update_elem/4, update_counter/4]).
+         remove_row_ids/4, update_elem/4, update_counter/4]).
 %% Native library support
 -export([load/0]).
 
@@ -106,6 +106,14 @@ remove(_Ref, _BigKey) ->
 
 -spec remove_row(Ref :: big_data(), BigKey :: binary(), RowID :: binary()) -> ok.
 remove_row(_Ref, _BigKey, _RowID) ->
+    not_loaded(?LINE).
+
+-spec remove_row_ids(Ref :: big_data(),
+                     BigKey :: big_key(),
+                     StartTime :: t(),
+                     EndTime :: t()) ->
+                        ok.
+remove_row_ids(_Ref, _BigKey, _StartTime, _EndTime) ->
     not_loaded(?LINE).
 
 %% @private

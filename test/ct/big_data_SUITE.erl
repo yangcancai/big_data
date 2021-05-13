@@ -37,6 +37,7 @@ all() ->
      not_found,
      remove,
      remove_row,
+     remove_row_ids,
      clear,
      range,
      get_time_index,
@@ -354,4 +355,36 @@ lookup_elem(_) ->
 
     ?assertEqual({}, big_data_nif:lookup_elem(Ref, BigKey, <<"1">>, {9})),
 
+    ok.
+
+remove_row_ids(_) ->
+    {ok, Ref} = big_data_nif:new(),
+    BigKey = <<"a">>,
+    ok =
+        big_data_nif:insert(Ref,
+                            BigKey,
+                            #row_data{row_id = <<"1">>,
+                                      term = 1,
+                                      time = 1}),
+    ok =
+        big_data_nif:insert(Ref,
+                            BigKey,
+                            #row_data{row_id = <<"2">>,
+                                      term = 1,
+                                      time = 1}),
+    ok =
+        big_data_nif:insert(Ref,
+                            BigKey,
+                            #row_data{row_id = <<"3">>,
+                                      term = 1,
+                                      time = 0}),
+
+    ?assertEqual(ok, big_data_nif:remove_row_ids(Ref, BigKey, 1, 1)),
+    ?assertEqual([#row_data{row_id = <<"3">>,
+                            term = 1,
+                            time = 0}],
+                 big_data_nif:get(Ref, BigKey)),
+
+    ?assertEqual(ok, big_data_nif:remove_row_ids(Ref, BigKey, 0, 1)),
+    ?assertEqual([], big_data_nif:get(Ref, BigKey)),
     ok.

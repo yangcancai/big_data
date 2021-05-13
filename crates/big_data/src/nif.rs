@@ -124,6 +124,12 @@ impl NifBigData {
             big_data.remove(row_id);
         }
     }
+    // remove row_ids between start_time and end_time
+    fn remove_row_ids(&mut self, big_key: &str, start_time: u128, end_time: u128){
+         if let Some(big_data) = self.data.get_mut(big_key) {
+            big_data.remove_row_ids(start_time, end_time);
+        }
+    }
 }
 #[repr(transparent)]
 struct NifBigDataResource(RwLock<NifBigData>);
@@ -323,6 +329,22 @@ fn remove_row<'a>(
     resource.write().remove_row(
         u8_to_string(&big_key).as_ref(),
         u8_to_string(&row_id).as_ref(),
+    );
+    Ok(ok().encode(env))
+}
+
+#[rustler::nif]
+fn remove_row_ids<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<NifBigDataResource>,
+    big_key: LazyBinary<'a>,
+    start_time: Time,
+    end_time: Time
+) -> NifResult<Term<'a>> {
+    resource.write().remove_row_ids(
+        u8_to_string(&big_key).as_ref(),
+        start_time.0,
+        end_time.0
     );
     Ok(ok().encode(env))
 }

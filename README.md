@@ -8,6 +8,7 @@ Safe Rust code for creating Erlang NIF to store big data
 * Update element/counter by positon
 * Lookup element by position
 * Remove a row
+* Remove Range row by time
 * Clear Bucket
 * Query all data of the Bucket
 * Safe thread
@@ -148,4 +149,51 @@ ok
 [true,true]
 31> big_data_nif:get(Ref,<<"player">>).                                 
 [{row_data,<<"3">>,{a,2,8,{4,5}},0}]
+```
+
+### Remove 
+
+```erlang
+2> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"3">>,{a,1,3,{4,5}},0}).
+ok
+3> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"4">>,{a,1,3,{4,5}},0}).
+4> big_data_nif:get(Ref,<<"player">>).
+[{row_data,<<"3">>,{a,1,3,{4,5}},0},
+ {row_data,<<"4">>,{a,1,3,{4,5}},0}]
+ %% remove player bucket
+6> big_data_nif:remove(Ref,<<"player">>).
+ok
+7> big_data_nif:get(Ref,<<"player">>).   
+[]
+8> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"4">>,{a,1,3,{4,5}},0}).
+ok
+9> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"3">>,{a,1,3,{4,5}},0}).
+ok
+%% remove a row which belong to player bucket
+10> big_data_nif:remove_row(Ref,<<"player">>,<<"3">>).
+ok
+11> big_data_nif:get(Ref,<<"player">>).                                        
+[{row_data,<<"4">>,{a,1,3,{4,5}},0}]
+12> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"3">>,{a,1,3,{4,5}},0}).
+ok
+%% remove all rows which time between 0 and 0
+13> big_data_nif:remove_row_ids(Ref,<<"player">>,0,0).                         
+ok
+14> big_data_nif:get(Ref,<<"player">>).                                        
+[]
+15> big_data_nif:insert(Ref, <<"player">>, {row_data,<<"3">>,{a,1,3,{4,5}},0}).
+ok
+16> big_data_nif:insert(Ref, <<"player1">>, {row_data,<<"4">>,{a,1,3,{4,5}},0}).
+ok
+17> big_data_nif:get(Ref,<<"player1">>).
+[{row_data,<<"4">>,{a,1,3,{4,5}},0}]
+18> big_data_nif:get(Ref,<<"player">>). 
+[{row_data,<<"3">>,{a,1,3,{4,5}},0}]
+%% clear all buckets
+19> big_data_nif:clear(Ref).
+ok
+20> big_data_nif:get(Ref,<<"player1">>).
+[]
+21> big_data_nif:get(Ref,<<"player">>). 
+[]
 ```

@@ -24,6 +24,7 @@ rustler::init!(
         nif::lookup_elem,
         nif::remove,
         nif::remove_row,
+        nif::remove_row_ids
     ],
     load = nif::on_load
 );
