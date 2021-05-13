@@ -21,9 +21,40 @@ Safe Rust code for creating Erlang NIF to store big data
 ```shell
 ## suite test
 $ make ct
+sh crates/build_crates.sh clippy
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+sh crates/build_crates.sh test
+    Finished test [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests (crates/big_data/target/debug/deps/big_data-b0003eb4ca1fc12e)
+
+running 14 tests
+test big_data::test::get ... ok
+test big_data::test::clear ... ok
+test big_data::test::get_range ... ok
+test big_data::test::get_range_row_ids ... ok
+test big_data::test::get_row_ids ... ok
+test big_data::test::get_time_index ... ok
+test big_data::test::insert ... ok
+test big_data::test::len_range_row_ids ... ok
+test big_data::test::len_row_ids ... ok
+test big_data::test::to_list ... ok
+test big_data::test::update_counter ... ok
+test big_data::test::remove_row_ids ... ok
+test big_data::test::remove ... ok
+test big_data::test::update_elem ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/big_data_test.rs (crates/big_data/target/debug/deps/big_data_test-53fe4a245ab43897)
+
+running 1 test
+test insert ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
 ./rebar3 do ct --dir test/ct -v --config test/ct/ct.config --sys_config config/test.config
 ===> Verifying dependencies...
-    Finished release [optimized] target(s) in 0.07s
+    Finished release [optimized] target(s) in 0.01s
 ===> Analyzing applications...
 ===> Compiling big_data_nif
 ===> Running Common Test suites...
@@ -32,13 +63,13 @@ Common Test starting (cwd is /Users/admin/proj/rust/big_data_nif)
 
 
 
-CWD set to: "/Users/admin/proj/rust/big_data_nif/_build/test/logs/ct_run.nonode@nohost.2021-05-12_18.22.45"
+CWD set to: "/Users/admin/proj/rust/big_data_nif/_build/test/logs/ct_run.nonode@nohost.2021-05-13_11.41.54"
 
-TEST INFO: 1 test(s), 10 case(s) in 1 suite(s)
+TEST INFO: 1 test(s), 11 case(s) in 1 suite(s)
 
-Testing test.ct: Starting test, 10 test cases
-%%% big_data_SUITE: ..........
-Testing test.ct: TEST COMPLETE, 10 ok, 0 failed of 10 test cases
+Testing test.ct: Starting test, 11 test cases
+%%% big_data_SUITE: ...........
+Testing test.ct: TEST COMPLETE, 11 ok, 0 failed of 11 test cases
 
 Updating /Users/admin/proj/rust/big_data_nif/_build/test/logs/index.html ... done
 Updating /Users/admin/proj/rust/big_data_nif/_build/test/logs/all_runs.html ... done
