@@ -11,9 +11,9 @@ use big_data::RowData;
 use big_data::RowTerm;
 use big_data::Time;
 use options::NifBigDataOptions;
+use rustler::resource::ResourceArc;
 use rustler::types::tuple::get_tuple;
 use rustler::types::tuple::make_tuple;
-use rustler::{resource::ResourceArc};
 use rustler::{Binary, Encoder, Env, NifResult, OwnedBinary, Term};
 // =================================================================================================
 // resource
@@ -153,7 +153,7 @@ pub fn on_load(env: Env, _load_info: Term) -> bool {
 // =================================================================================================
 
 #[rustler::nif]
-fn new<'a>(env: Env<'a>, opts: NifBigDataOptions) -> NifResult<Term<'a>> {
+fn new(env: Env, opts: NifBigDataOptions) -> NifResult<Term> {
     let rs = NifBigData::new(opts).map_err(|e| rustler::error::Error::Term(Box::new(e)))?;
     Ok((ok(), ResourceArc::new(NifBigDataResource::from(rs))).encode(env))
 }
@@ -224,7 +224,7 @@ fn get<'a>(
     big_key: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    let list = read.to_list(u8_to_string(&big_key).as_ref()); 
+    let list = read.to_list(u8_to_string(&big_key).as_ref());
     Ok((list).encode(env))
 }
 #[rustler::nif]
@@ -271,12 +271,15 @@ fn get_time_index<'a>(
     row_id: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(time) = read.get_time_index(u8_to_string(&big_key).as_ref(), u8_to_string(&row_id).as_ref()) {
-            let i: i64 = time as i64;
-            Ok(i.encode(env))
-        } else {
-            Ok(atoms::notfound().encode(env))
-        }
+    if let Some(time) = read.get_time_index(
+        u8_to_string(&big_key).as_ref(),
+        u8_to_string(&row_id).as_ref(),
+    ) {
+        let i: i64 = time as i64;
+        Ok(i.encode(env))
+    } else {
+        Ok(atoms::notfound().encode(env))
+    }
 }
 #[rustler::nif]
 fn lookup_elem<'a>(
@@ -292,11 +295,11 @@ fn lookup_elem<'a>(
         u8_to_string(&row_id).as_ref(),
         elem_spec,
     );
-   let terms: Vec<_> = term.into_iter().map(|t| t.encode(env)).collect();
+    let terms: Vec<_> = term.into_iter().map(|t| t.encode(env)).collect();
     Ok(make_tuple(env, terms.as_ref()).encode(env))
 }
 #[rustler::nif]
-fn clear<'a>(env: Env<'a>, resource: ResourceArc<NifBigDataResource>) -> NifResult<Term<'a>> {
+fn clear(env: Env, resource: ResourceArc<NifBigDataResource>) -> NifResult<Term> {
     resource.write().clear();
     Ok(ok().encode(env))
 }

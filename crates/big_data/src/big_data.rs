@@ -60,14 +60,14 @@ impl RowData {
         RowData {
             row_id: row_id.to_string(),
             term: row_term,
-            time: time,
+            time,
         }
     }
 }
 impl PartialEq for RowData {
     fn eq(&self, other: &RowData) -> bool {
-        if self.term == other.term {
-            return self.time == self.time;
+        if self.row_id == other.row_id && self.term == other.term {
+            return self.time == other.time;
         }
         false
     }
@@ -110,6 +110,9 @@ impl BigData {
     }
     pub fn len(&self) -> usize {
         self.rows.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
     }
     pub fn len_time_index(&self) -> usize {
         self.time_index.len()
@@ -206,7 +209,7 @@ impl BigData {
                         // tuple
                         RowTerm::Tuple(row_data_tuple) => {
                             if let RowTerm::Integer(i) = tuple[0] {
-                                if i>= 0 && row_data_tuple.len() as i64 > i{
+                                if i >= 0 && row_data_tuple.len() as i64 > i {
                                     row_data_tuple[i as usize] += tuple[1].clone();
                                     return vec![true];
                                 } else {
@@ -250,7 +253,7 @@ impl BigData {
                     let b = self.update_counter(row_id, pos_elem);
                     rs.push(b[0]);
                 }
-                return rs;
+                rs
             }
             _ => {
                 return vec![false];
@@ -316,7 +319,7 @@ impl BigData {
                     let vec_bool = self.update_elem(row_id, pos_elem);
                     rs.push(vec_bool[0]);
                 }
-                return rs;
+                rs
             }
             _ => {
                 return vec![false];
@@ -347,7 +350,7 @@ impl BigData {
                 let mut rs: Vec<&RowTerm> = Vec::new();
                 for pos_elem in list {
                     let vec = self.lookup_elem(row_id, pos_elem);
-                    if vec.len() > 0 {
+                    if !vec.is_empty() {
                         rs.push(vec[0]);
                     }
                 }
@@ -356,7 +359,7 @@ impl BigData {
             _ => {}
         }
         let l: Vec<&RowTerm> = Vec::new();
-        return l;
+        l
     }
     /// Get a RowData From BigData, such as a key value
     ///
@@ -396,10 +399,7 @@ impl BigData {
     ///
     ///
     pub fn get_time_index(&self, row_id: &str) -> Option<u128> {
-        match self.get(row_id) {
-            None => None,
-            Some(row) => Some(row.time),
-        }
+        self.get(row_id).map(|row| row.time)
     }
     /// Get row_ids by timestamp
     ///
@@ -602,10 +602,7 @@ impl BigData {
 }
 impl RowTerm {
     fn is_integer(&self) -> bool {
-        match self {
-            RowTerm::Integer(_) => true,
-            _ => false,
-        }
+        matches!(self, RowTerm::Integer(_))
     }
 }
 impl Add for RowTerm {
@@ -626,7 +623,7 @@ impl Add for RowTerm {
 impl AddAssign for RowTerm {
     fn add_assign(&mut self, other: Self) {
         let new = self.clone().add(other);
-        *self = new.clone();
+        *self = new;
     }
 }
 
@@ -699,7 +696,7 @@ impl Encoder for RowTerm {
                 Err(_) => atoms::error().encode(env),
             },
             RowTerm::Tuple(inner) => {
-                let terms: Vec<_> = inner.into_iter().map(|t| t.encode(env)).collect();
+                let terms: Vec<_> = inner.iter().map(|t| t.encode(env)).collect();
                 make_tuple(env, terms.as_ref()).encode(env)
             }
             RowTerm::List(inner) => inner.encode(env),
@@ -739,9 +736,7 @@ impl<'a> Decoder<'a> for Time {
 
 impl<'a> Decoder<'a> for RowData {
     fn decode(term: Term<'a>) -> NifResult<Self> {
-        if let Some(row) = convert_to_row_term(&term) {
-            match row {
-                RowTerm::Tuple(tuple) => {
+        if let Some(RowTerm::Tuple(tuple)) = convert_to_row_term(&term) {
                     if tuple.len() == 4
                         && tuple[0] == RowTerm::Atom("row_data".to_string())
                         && tuple[3].is_integer()
@@ -765,10 +760,7 @@ impl<'a> Decoder<'a> for RowData {
                             }
                         }
                     }
-                }
-                _ => {}
             }
-        }
         Err(Error::BadArg)
     }
 }
@@ -1079,8 +1071,15 @@ mod test {
                 RowTerm::List(vec![RowTerm::Tuple(vec![
                     RowTerm::Integer(0),
                     RowTerm::Tuple(vec![
-                        RowTerm::Tuple(vec![RowTerm::Atom("a".to_string()), RowTerm::Atom("b".to_string())]),
-                        RowTerm::List(vec![RowTerm::Integer(1), RowTerm::Integer(1), RowTerm::Integer(1)]),
+                        RowTerm::Tuple(vec![
+                            RowTerm::Atom("a".to_string()),
+                            RowTerm::Atom("b".to_string())
+                        ]),
+                        RowTerm::List(vec![
+                            RowTerm::Integer(1),
+                            RowTerm::Integer(1),
+                            RowTerm::Integer(1)
+                        ]),
                         RowTerm::Integer(1),
                         RowTerm::Bitstring("hello".to_string())
                     ])
@@ -1093,8 +1092,15 @@ mod test {
                 "a",
                 RowTerm::Tuple(vec![
                     RowTerm::Tuple(vec![
-                        RowTerm::Tuple(vec![RowTerm::Atom("a".to_string()), RowTerm::Atom("b".to_string())]),
-                        RowTerm::List(vec![RowTerm::Integer(1), RowTerm::Integer(1), RowTerm::Integer(1)]),
+                        RowTerm::Tuple(vec![
+                            RowTerm::Atom("a".to_string()),
+                            RowTerm::Atom("b".to_string())
+                        ]),
+                        RowTerm::List(vec![
+                            RowTerm::Integer(1),
+                            RowTerm::Integer(1),
+                            RowTerm::Integer(1)
+                        ]),
                         RowTerm::Integer(1),
                         RowTerm::Bitstring("hello".to_string())
                     ]),
