@@ -26,13 +26,17 @@ distclean:
 ###===================================================================
 .PHONY: test eunit ct testclean
 
-test: epmd dialyzer
-	./rebar3 do eunit -v, ct --dir test/ct --config test/ct/ct.config --sys_config config/test.config -v, cover
+test: epmd dialyzer 
+	sh crates/build_crates.sh test
+	./rebar3 do eunit --dir test/eunit -v
+	./rebar3 do ct --dir test/ct --config test/ct/ct.config --sys_config config/test.config -v
 
 eunit: epmd
-	./rebar3 do eunit -v, cover
+	./rebar3 do eunit -v
 
 ct: epmd
+	sh crates/build_crates.sh clippy
+	sh crates/build_crates.sh test
 	./rebar3 do ct --dir test/ct -v --config test/ct/ct.config --sys_config config/test.config
 
 testclean:
@@ -45,6 +49,7 @@ config: epmd
 	# ./tool.sh replace_config
 
 dialyzer: epmd
+	sh crates/build_crates.sh clippy
 	./rebar3 do dialyzer
 
 tar: epmd
