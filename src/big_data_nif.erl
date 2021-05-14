@@ -9,7 +9,7 @@
 
 -on_load load/0.
 
--include("big_data_nif.hrl").
+-include("big_data.hrl").
 
 -opaque big_data() :: reference().
 

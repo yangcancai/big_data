@@ -1,8 +1,8 @@
-{application, big_data_nif,
+{application, big_data,
  [{description, "An OTP application"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, {big_data_nif_app, []}},
+  {mod, {big_data_app, []}},
   {applications,
    [kernel,
     stdlib

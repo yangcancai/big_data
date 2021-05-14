@@ -3,14 +3,14 @@
 %% @end
 %%%-------------------------------------------------------------------
 
--module(big_data_nif_app).
+-module(big_data_app).
 
 -behaviour(application).
 
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    big_data_nif_sup:start_link().
+    big_data_sup:start_link().
 
 stop(_State) ->
     ok.

@@ -30,7 +30,7 @@
 
 -compile(export_all).
 
--define(APP, big_data_nif).
+-define(APP, big_data).
 
 all() ->
     [insert_check,
