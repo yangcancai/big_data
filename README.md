@@ -1,4 +1,4 @@
-# big_data_nif
+# big_data
 Safe Rust code for creating Erlang NIF to store big data 
 
 ![CI](https://github.com/yangcancai/big_data_nif/actions/workflows/ci.yml/badge.svg)
