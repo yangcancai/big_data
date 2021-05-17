@@ -27,11 +27,18 @@
 -ifndef(H_big_data_nif).
 
 -define(H_big_data_nif, true).
+-define(SYNC_INTERVAL, 5000).
+-define(BD_LOG_META, bd_log_meta).
+-define(BD_WAL_CHECKPOINT_SIZE, 1000).
+-define(BD_WAL_CHECKPOINT_TIMEOUT, 60000).
+-define(BD_WAL_MAX_SIZE_BYTES, 128 * 1024 * 1024).
 
 -record(row_data,
         {row_id = <<"">> :: binary(), term = {} :: term(), time = 0 :: integer()}).
 
--type ation() :: insert | update_elem | remove.
+-type write() :: insert | update_elem | update_counter | remove_row.
+-type read() :: get | get_row | get_range.
+-type ation() :: write() | read().
 -type maybe(T) :: undefined | T.
 -type wal_write_strategy() :: default | o_sync.
 

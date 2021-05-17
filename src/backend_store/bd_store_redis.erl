@@ -15,7 +15,7 @@
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
 %%%
-   
+
 %%% @doc
 %%%
 %%% @end
@@ -23,6 +23,37 @@
 %%%-------------------------------------------------------------------
 -module(bd_store_redis).
 
+-behaviour(bd_backend_store).
+
 -author("yangcancai").
 
--export([]).
+-include("big_data.hrl").
+
+-export([start_link/5, handle_get/1, pid/0, handle_put/2, handle_del/1]).
+
+start_link(Ip, Port, Pwd, Db, ReconnSleep) ->
+    {ok, Pid} = eredis:start_link(Ip, Port, Pwd, Db, ReconnSleep),
+    ok = persistent_term:put(?MODULE, Pid),
+    {ok, Pid}.
+
+-spec handle_get(BigKey :: big_key()) -> row_data_list().
+handle_get(BigKey) ->
+    case eredis:q(pid(), ["GET", BigKey]) of
+        {ok, undefined} ->
+            [];
+        {ok, Result} ->
+            erlang:binary_to_term(Result)
+    end.
+
+-spec handle_del(BigKey :: big_key()) -> ok.
+handle_del(BigKey) ->
+    {ok, _} = eredis:q(pid(), ["DEL", BigKey]),
+    ok.
+
+-spec handle_put(BigKey :: big_key(), RowDataList :: row_data_list()) -> ok.
+handle_put(BigKey, RowDataList) ->
+    {ok, <<"OK">>} = eredis:q(pid(), ["SET", BigKey, erlang:term_to_binary(RowDataList)]),
+    ok.
+
+pid() ->
+    persistent_term:get(?MODULE).

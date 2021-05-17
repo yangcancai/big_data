@@ -117,8 +117,15 @@ not_found(_) ->
     {ok, Ref} = big_data_nif:new(),
     BigKey = <<"a">>,
     RowID = <<"1">>,
-    ?assertEqual([], big_data_nif:get(Ref, BigKey)),
-    ?assertEqual(notfound, big_data_nif:get_row(Ref, BigKey, RowID)),
+    ?assertEqual(?BD_NOTFOUND, big_data_nif:get(Ref, BigKey)),
+    ?assertEqual(?BD_NOTFOUND, big_data_nif:get_row(Ref, BigKey, RowID)),
+    ok =
+        big_data_nif:insert(Ref,
+                            BigKey,
+                            #row_data{row_id = <<"2">>,
+                                      time = 1,
+                                      term = 1}),
+    ?assertEqual(nil, big_data_nif:get_row(Ref, BigKey, RowID)),
     ok.
 
 remove(_) ->
@@ -135,7 +142,7 @@ remove(_) ->
                             time = 1}],
                  big_data_nif:get(Ref, BigKey)),
     big_data_nif:remove(Ref, BigKey),
-    ?assertEqual([], big_data_nif:get(Ref, BigKey)),
+    ?assertEqual(?BD_NOTFOUND, big_data_nif:get(Ref, BigKey)),
     ?assertEqual(notfound, big_data_nif:get_row(Ref, BigKey, RowID)),
     ok.
 
@@ -165,7 +172,7 @@ remove_row(_) ->
                             term = 1,
                             time = 2}],
                  big_data_nif:get(Ref, BigKey)),
-    ?assertEqual(notfound, big_data_nif:get_row(Ref, BigKey, RowID)),
+    ?assertEqual(nil, big_data_nif:get_row(Ref, BigKey, RowID)),
     ?assertEqual(#row_data{row_id = <<"2">>,
                            term = 1,
                            time = 2},
@@ -196,8 +203,8 @@ clear(_) ->
                             time = 2}],
                  big_data_nif:get(Ref, <<"b">>)),
     big_data_nif:clear(Ref),
-    ?assertEqual(notfound, big_data_nif:get_row(Ref, BigKey, RowID)),
-    ?assertEqual([], big_data_nif:get(Ref, <<"b">>)),
+    ?assertEqual(?BD_NOTFOUND, big_data_nif:get_row(Ref, BigKey, RowID)),
+    ?assertEqual(?BD_NOTFOUND, big_data_nif:get(Ref, <<"b">>)),
     ok.
 
 range(_) ->
