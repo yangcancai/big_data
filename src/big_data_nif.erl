@@ -46,11 +46,11 @@ update_counter(_Ref, _BigKey, _RowID, _ElemSpecs) ->
     not_loaded(?LINE).
 
 -spec get_row(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
-                 row_data() | ?BD_NOTFOUND.
+                 row_data() | nil.
 get_row(_Ref, _BigKey, _RowID) ->
     not_loaded(?LINE).
 
--spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list().
+-spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list() | ?BD_NOTFOUND.
 get(_Ref, _BigKey) ->
     not_loaded(?LINE).
 
@@ -58,7 +58,7 @@ get(_Ref, _BigKey) ->
                 BigKey :: binary(),
                 StartTime :: t(),
                 EndTime :: t()) ->
-                   row_data_list().
+                   row_data_list() | ?BD_NOTFOUND.
 get_range(_Ref, _BigKey, _StartTime, _EndTime) ->
     not_loaded(?LINE).
 
@@ -66,11 +66,12 @@ get_range(_Ref, _BigKey, _StartTime, _EndTime) ->
                         BigKey :: big_key(),
                         StartTime :: t(),
                         EndTime :: t()) ->
-                           row_id_list().
+                           row_id_list() | ?BD_NOTFOUND.
 get_range_row_ids(_Ref, _BigKey, _StartTime, _EndTime) ->
     not_loaded(?LINE).
 
--spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) -> row_id_list().
+-spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) ->
+                     row_id_list() | ?BD_NOTFOUND.
 get_row_ids(_Ref, _BigKey, _Time) ->
     not_loaded(?LINE).
 

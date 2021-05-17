@@ -18,18 +18,17 @@
 
 %%% @doc
 %%%  wal file format:
-%%%  Wal Header: 13bytes
+%%%  Wal Header: 5bytes
 %%%  Wal Header
 %%%  Magic: 4bytes
 %%%  File format version: 1bytes
-%%%  Checkpoint sequence number: 8bytes
 %%%
 %%%  Frame =
 %%%  <<Checksum:32/integer,
-%%%  EntryDataLen:32/unsigned,
+%%%  FrameDataLen:32/unsigned,
 %%%  Idx:64/unsigned,
-%%%  EntryData:EntryDataLen/binary>>
-%%%  CheckSum = erlang:adler32(<<Idx:64/unsigned, EntryData/binary>>)
+%%%  FrameData:FrameDataLen/binary>>
+%%%  CheckSum = erlang:adler32(<<Idx:64/unsigned, FrameData/binary>>)
 %%% @end
 %%% Created : 2021-05-14T04:30:10+00:00
 %%%-------------------------------------------------------------------
@@ -41,13 +40,13 @@
 
 %% API
 -export([start_link/0]).
--export([write/1]).
+-export([write/1, prepare_file/2, make_tmp/1]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
 -define(SERVER, ?MODULE).
--define(HEADER_SIZE, 13).
+-define(HEADER_SIZE, 5).
 -define(MAGIC, "BDWA").
 -define(VERSION, 1).
 %% 32m， file:read(fd, ?WAL_RECOVERY_CHUNK_SIZE)
@@ -59,6 +58,13 @@
 -record(bd_log_wal_state,
         {fd :: maybe(file:io_device()),
          filename :: maybe(file:filename()),
+         file_num = 1 :: pos_integer(),
+         file_size = 0 :: pos_integer(),
+         log_meta_ref :: reference(),
+         checkpoint_seq = 0 :: pos_integer(),
+         last_checkpoint_time = 0 :: pos_integer(),
+         log_seq = 0 :: pos_integer(),
+         max_size_bytes = ?BD_WAL_MAX_SIZE_BYTES :: pos_integer(),
          write_strategy = default :: wal_write_strategy(),
          file_modes = [raw, write, read, binary] :: list()}).
 
@@ -88,7 +94,9 @@ start_link() ->
 init([]) ->
     %% recover from *.wal
     ?BD_WAL_BUFFER =
-        ets:new(?BD_WAL_BUFFER, [named_table, public, set, {write_concurrency, true}]),
+        ets:new(?BD_WAL_BUFFER,
+                [named_table, public, set, {keypos, #bd_wal.id}, {write_concurrency, true}]),
+    erlang:send_after(1000, self(), tick),
     {ok, recover_wal()}.
 
 %% @private
@@ -114,9 +122,11 @@ handle_call(_Request, _From, State = #bd_log_wal_state{}) ->
                      {noreply, NewState :: #bd_log_wal_state{}} |
                      {noreply, NewState :: #bd_log_wal_state{}, timeout() | hibernate} |
                      {stop, Reason :: term(), NewState :: #bd_log_wal_state{}}.
-handle_cast(#bd_wal{}, State) ->
+handle_cast(#bd_wal{} = Wal, State) ->
     %% First: write ahead log
+    write_wal(State, Wal),
     %% Second: update wal_buffer
+    insert_wal_buffer(Wal),
     {noreply, State};
 handle_cast(_Request, State = #bd_log_wal_state{}) ->
     {noreply, State}.
@@ -127,6 +137,25 @@ handle_cast(_Request, State = #bd_log_wal_state{}) ->
                      {noreply, NewState :: #bd_log_wal_state{}} |
                      {noreply, NewState :: #bd_log_wal_state{}, timeout() | hibernate} |
                      {stop, Reason :: term(), NewState :: #bd_log_wal_state{}}.
+handle_info(tick,
+            State =
+                #bd_log_wal_state{log_meta_ref = Ref,
+                                  log_seq = LogSeq,
+                                  last_checkpoint_time = LastTime,
+                                  checkpoint_seq = CheckpointSeq}) ->
+    erlang:send_after(1000, self(), tick),
+    Now = erlang:system_time(1000),
+    case LogSeq - CheckpointSeq >= ?BD_WAL_CHECKPOINT_SIZE orelse
+             Now - LastTime >= ?BD_WAL_CHECKPOINT_TIMEOUT
+    of
+        true ->
+            NewSeq = checkpoint(Ref, CheckpointSeq),
+            %% delete already commit data
+            delete_wal_buffer(NewSeq),
+            {noreply, State#bd_log_wal_state{checkpoint_seq = NewSeq, last_checkpoint_time = Now}};
+        _ ->
+            {noreply, State}
+    end;
 handle_info(_Info, State = #bd_log_wal_state{}) ->
     {noreply, State}.
 
@@ -138,7 +167,9 @@ handle_info(_Info, State = #bd_log_wal_state{}) ->
 -spec terminate(Reason :: normal | shutdown | {shutdown, term()} | term(),
                 State :: #bd_log_wal_state{}) ->
                    term().
-terminate(_Reason, _State = #bd_log_wal_state{}) ->
+terminate(_Reason, _State = #bd_log_wal_state{log_meta_ref = Ref}) ->
+    ok = dets:sync(?BD_LOG_META),
+    _ = dets:close(Ref),
     ok.
 
 %% @private
@@ -156,6 +187,9 @@ code_change(_OldVsn, State = #bd_log_wal_state{}, _Extra) ->
 recover_wal() ->
     Dir = "data/wal",
     ok = make_dir(Dir),
+    MetaFile = "data/meta.dets",
+    {ok, Ref} = dets:open_file(?BD_LOG_META, [{file, MetaFile}, {auto_save, ?SYNC_INTERVAL}]),
+    CheckpointSeq = lookup_checkpoint_seq(Ref),
     WalFiles =
         lists:sort(
             filelib:wildcard(
@@ -163,14 +197,14 @@ recover_wal() ->
     %% read chunk to wal_buffer
     [begin
          Fd = open_and_read_header(File),
-         recover_wal_chunk(Fd, ?WAL_RECOVERY_CHUNK_SIZE)
+         recover_wal_chunk(CheckpointSeq, Fd, ?WAL_RECOVERY_CHUNK_SIZE)
      end
      || File <- WalFiles],
     %% proccess all action
     process_all_action(),
     %% checkpoint
-    checkpoint(),
-    #bd_log_wal_state{}.
+    NewCheckpointSeq = checkpoint(Ref, CheckpointSeq),
+    #bd_log_wal_state{log_meta_ref = Ref, checkpoint_seq = NewCheckpointSeq}.
 
 prepare_file(File, Modes) ->
     Tmp = make_tmp(File),
@@ -212,19 +246,20 @@ handle_make_dir(Error) ->
 open_and_read_header(File) ->
     {ok, Fd} = file:open(File, [read, binary, raw]),
     case file:read(Fd, ?HEADER_SIZE) of
-        {ok, <<?MAGIC, ?VERSION:8/unsigned, _CheckpointSeq:64/unsigned>>} ->
+        {ok, <<?MAGIC, ?VERSION:8/unsigned>>} ->
             %% the only version currently supported
             Fd;
-        {ok, <<Magic:4/binary, UnknownVersion:8/unsigned, _CheckpointSeq:64/unsigned>>} ->
+        {ok, <<Magic:4/binary, UnknownVersion:8/unsigned>>} ->
             exit({unknown_wal_file_format, Magic, UnknownVersion})
     end.
 
 %% recover wal chunck to ets table
-recover_wal_chunk(Fd, ChunkSz) ->
+recover_wal_chunk(CheckpointSeq, Fd, ChunkSz) ->
     Chunk = read_from_wal_file(Fd, ChunkSz),
-    recover_frames(Fd, Chunk, ChunkSz).
+    recover_frames(CheckpointSeq, Fd, Chunk, ChunkSz).
 
-recover_frames(_Fd,
+recover_frames(_CheckpointSeq,
+               _Fd,
                <<0:32/unsigned,
                  FrameDataLen:32/unsigned,
                  0:64/integer,
@@ -232,29 +267,35 @@ recover_frames(_Fd,
                  _/binary>>,
                _ChunkSize) ->
     ok;
-recover_frames(Fd,
+recover_frames(CheckpointSeq,
+               Fd,
                <<Checksum:32/integer,
                  FrameDataLen:32/unsigned,
                  Idx:64/unsigned,
                  FrameData:FrameDataLen/binary,
                  Rest/binary>>,
                ChunkSize) ->
-    true = validate_and_update(Checksum, Idx, FrameData),
-    recover_frames(Fd, Rest, ChunkSize);
-recover_frames(Fd, Chunk, ChunkSize) ->
+    case Idx > CheckpointSeq of
+        true ->
+            true = validate_and_update(Checksum, Idx, FrameData);
+        _ ->
+            ignore
+    end,
+    recover_frames(CheckpointSeq, Fd, Rest, ChunkSize);
+recover_frames(CheckpointSeq, Fd, Chunk, ChunkSize) ->
     NextChunk = read_from_wal_file(Fd, ChunkSize),
     case NextChunk of
         <<>> ->
             ok;
         _ ->
             Chunk0 = <<Chunk/binary, NextChunk/binary>>,
-            recover_frames(Fd, Chunk0, ChunkSize)
+            recover_frames(CheckpointSeq, Fd, Chunk0, ChunkSize)
     end.
 
 validate_and_update(Checksum, Idx, FrameData) ->
     ok = validate_checksum(Checksum, Idx, FrameData),
     %% write to memtable
-    true = ets:insert(?BD_WAL_BUFFER, {Idx, erlang:binary_to_term(FrameData)}),
+    true = insert_wal_buffer(erlang:binary_to_term(FrameData)),
     ok.
 
 validate_checksum(Checksum, Idx, FrameData) ->
@@ -284,8 +325,67 @@ process_all_action() ->
 process_all_action(_, []) ->
     ok;
 process_all_action(Ref, [#bd_wal{action = Action, args = Args} | Rest]) ->
-    apply(big_data_nif, Action, [Ref] ++ Args),
+    apply(big_data, Action, [Ref] ++ Args),
     process_all_action(Ref, Rest).
 
-checkpoint() ->
-    ok.
+checkpoint(Ref, CheckpointSeq) when is_integer(CheckpointSeq) ->
+    {NewSeq, List} =
+        ets:foldl(fun (#bd_wal{id = Id} = Row, {Seq, Acc}) when Id > CheckpointSeq ->
+                          {erlang:max(Id, Seq), [Row | Acc]};
+                      (_, Acc) ->
+                          Acc
+                  end,
+                  {CheckpointSeq, []},
+                  ?BD_WAL_BUFFER),
+
+    ok = checkpoint(Ref, lists:reverse(List)),
+    NewSeq;
+checkpoint(_, []) ->
+    ok;
+checkpoint(Ref,
+           [#bd_wal{id = ID,
+                    action = Action,
+                    args = [BigKey | _]}
+            | Rest])
+    when Action == insert;
+         Action == remove_row;
+         Action == update_counter;
+         Action == update_elem ->
+    case big_data_nif:get(?BD_BIG_DATA_REF, BigKey) of
+        ?BD_NOTFOUND ->
+            ok;
+        RowDataList ->
+            ok = bd_backend_store:handle_put(BigKey, RowDataList),
+            update_checkpoint_seq(Ref, ID)
+    end,
+    checkpoint(Ref, Rest).
+
+lookup_checkpoint_seq(Ref) ->
+    case dets:lookup(Ref, checkpoint_seq) of
+        [] ->
+            0;
+        [Seq] ->
+            Seq
+    end.
+
+update_checkpoint_seq(Ref, Seq) ->
+    ok = dets:insert(Ref, {checkpoint_seq, Seq}).
+
+delete_wal_buffer(CheckpointSeq) ->
+    true =
+        ets:match_delete(?BD_WAL_BUFFER,
+                         ets:fun2ms(fun(#bd_wal{id = Id}) when Id < CheckpointSeq -> true end)).
+
+insert_wal_buffer(#bd_wal{} = Log) ->
+    true = ets:insert(?BD_WAL_BUFFER, Log).
+
+write_wal(#bd_log_wal_state{fd = Fd}, #bd_wal{id = Idx} = Wal) ->
+    FrameData = erlang:term_to_binary(Wal),
+    FrameDataLen = erlang:size(FrameData),
+    Checksum = erlang:adler32(<<Idx:64/unsigned, FrameData/binary>>),
+    WalFrame =
+        <<Checksum:32/integer,
+          FrameDataLen:32/unsigned,
+          Idx:64/unsigned,
+          FrameData:FrameDataLen/binary>>,
+    file:write(Fd, WalFrame).

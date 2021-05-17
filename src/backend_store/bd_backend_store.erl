@@ -15,7 +15,7 @@
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
 %%%
-   
+
 %%% @doc
 %%%
 %%% @end
@@ -23,6 +23,34 @@
 %%%-------------------------------------------------------------------
 -module(bd_backend_store).
 
+-include("big_data.hrl").
+
 -author("yangcancai").
 
--export([]).
+-callback handle_get(big_key()) -> row_data_list().
+-callback handle_put(big_key(), row_data_list()) -> ok.
+-callback handle_del(big_key()) -> ok.
+
+-export([handle_get/1, handle_put/2, handle_del/1, set_backend_store/1]).
+
+-spec set_backend_store(Module :: atom()) -> ok.
+set_backend_store(Module) ->
+    persistent_term:put(?MODULE, Module).
+
+-spec handle_get(BigKey :: big_key()) -> row_data_list().
+handle_get(BigKey) ->
+    Mod = m(),
+    Mod:handle_get(BigKey).
+
+-spec handle_put(BigKey :: big_key(), RowDataList :: row_data_list()) -> ok.
+handle_put(BigKey, RowDataList) ->
+    Mod = m(),
+    Mod:handle_put(BigKey, RowDataList).
+
+-spec handle_del(BigKey :: big_key()) -> ok.
+handle_del(BigKey) ->
+    Mod = m(),
+    Mod:handle_del(BigKey).
+
+m() ->
+    persistent_term:get(?MODULE).

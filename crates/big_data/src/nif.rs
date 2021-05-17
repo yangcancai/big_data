@@ -57,40 +57,24 @@ impl NifBigData {
             .get_mut(big_key)
             .map(|big_data| big_data.update_counter(row_id, elem_spec))
     }
-    // get
-    fn get_row(&self, big_key: &str, row_id: &str) -> Option<&RowData> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.get(row_id)
-        } else {
-            None
-        }
-    }
     fn get(&self, big_key: &str) -> Option<&BigData> {
         self.data.get(big_key)
     }
-    fn get_range(&self, big_key: &str, start_time: u128, end_time: u128) -> Vec<&RowData> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.get_range(start_time, end_time)
-        } else {
-            let l: Vec<&RowData> = Vec::new();
-            l
-        }
+    fn get_range(&self, big_key: &str, start_time: u128, end_time: u128) -> Option<Vec<&RowData>> {
+        self.get(big_key)
+            .map(|big_data| big_data.get_range(start_time, end_time))
     }
-    fn get_range_row_ids(&self, big_key: &str, start_time: u128, end_time: u128) -> Vec<&String> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.get_range_row_ids(start_time, end_time)
-        } else {
-            let l: Vec<&String> = Vec::new();
-            l
-        }
+    fn get_range_row_ids(
+        &self,
+        big_key: &str,
+        start_time: u128,
+        end_time: u128,
+    ) -> Option<Vec<&String>> {
+        self.get(big_key)
+            .map(|big_data| big_data.get_range_row_ids(start_time, end_time))
     }
-    fn get_row_ids(&self, big_key: &str, time: u128) -> Vec<&String> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.get_row_ids(time)
-        } else {
-            let l: Vec<&String> = Vec::new();
-            l
-        }
+    fn get_row_ids(&self, big_key: &str, time: u128) -> Option<Vec<&String>> {
+        self.get(big_key).map(|big_data| big_data.get_row_ids(time))
     }
     fn get_time_index(&self, big_key: &str, row_id: &str) -> Option<u128> {
         if let Some(big_data) = self.get(big_key) {
@@ -99,22 +83,18 @@ impl NifBigData {
             None
         }
     }
-    fn lookup_elem(&self, big_key: &str, row_id: &str, elem_spec: RowTerm) -> Vec<&RowTerm> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.lookup_elem(row_id, elem_spec)
-        } else {
-            let v: Vec<&RowTerm> = Vec::new();
-            v
-        }
+    fn lookup_elem(
+        &self,
+        big_key: &str,
+        row_id: &str,
+        elem_spec: RowTerm,
+    ) -> Option<Vec<&RowTerm>> {
+        self.get(big_key)
+            .map(|big_data| big_data.lookup_elem(row_id, elem_spec))
     }
     // to_list
-    fn to_list(&self, big_key: &str) -> Vec<&RowData> {
-        if let Some(big_data) = self.get(big_key) {
-            big_data.to_list()
-        } else {
-            let l: Vec<&RowData> = Vec::new();
-            l
-        }
+    fn to_list(&self, big_key: &str) -> Option<Vec<&RowData>> {
+        self.get(big_key).map(|big_data| big_data.to_list())
     }
     // clear all big_data
     fn clear(&mut self) {
@@ -189,7 +169,7 @@ fn insert_new<'a>(
     row_data_list: Vec<RowData>,
 ) -> NifResult<Term<'a>> {
     let mut write = resource.write();
-    for row in row_data_list{
+    for row in row_data_list {
         write.insert(u8_to_string(&big_key).as_ref(), row);
     }
     Ok(ok().encode(env))
@@ -242,11 +222,9 @@ fn get_row<'a>(
     row_id: LazyBinary<'a>,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    if let Some(rs) = read.get_row(
-        u8_to_string(&big_key).as_ref(),
-        u8_to_string(&row_id).as_ref(),
-    ) {
-        Ok((*rs).encode(env))
+    if let Some(big_data) = read.get(u8_to_string(&big_key).as_ref()) {
+        let rs = big_data.get(u8_to_string(&row_id).as_ref());
+        Ok((rs).encode(env))
     } else {
         Ok(atoms::notfound().encode(env))
     }
@@ -259,7 +237,11 @@ fn get<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     let list = read.to_list(u8_to_string(&big_key).as_ref());
-    Ok((list).encode(env))
+    if list == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok((list).encode(env))
+    }
 }
 #[rustler::nif]
 fn get_range<'a>(
@@ -271,7 +253,11 @@ fn get_range<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     let list = read.get_range(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
-    Ok((list).encode(env))
+    if list == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok((list).encode(env))
+    }
 }
 
 #[rustler::nif]
@@ -284,7 +270,11 @@ fn get_range_row_ids<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     let list = read.get_range_row_ids(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
-    Ok((list).encode(env))
+    if list == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok((list).encode(env))
+    }
 }
 #[rustler::nif]
 fn get_row_ids<'a>(
@@ -295,7 +285,11 @@ fn get_row_ids<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     let list = read.get_row_ids(u8_to_string(&big_key).as_ref(), time.0);
-    Ok((list).encode(env))
+    if list == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok((list).encode(env))
+    }
 }
 #[rustler::nif]
 fn get_time_index<'a>(
@@ -324,13 +318,16 @@ fn lookup_elem<'a>(
     elem_spec: RowTerm,
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
-    let term = read.lookup_elem(
+    if let Some(term) = read.lookup_elem(
         u8_to_string(&big_key).as_ref(),
         u8_to_string(&row_id).as_ref(),
         elem_spec,
-    );
-    let terms: Vec<_> = term.into_iter().map(|t| t.encode(env)).collect();
-    Ok(make_tuple(env, terms.as_ref()).encode(env))
+    ) {
+        let terms: Vec<_> = term.into_iter().map(|t| t.encode(env)).collect();
+        Ok(make_tuple(env, terms.as_ref()).encode(env))
+    } else {
+        Ok(atoms::notfound().encode(env))
+    }
 }
 #[rustler::nif]
 fn clear(env: Env, resource: ResourceArc<NifBigDataResource>) -> NifResult<Term> {
