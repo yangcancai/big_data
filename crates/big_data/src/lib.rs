@@ -13,6 +13,7 @@ rustler::init!(
         nif::new,
         nif::clear,
         nif::insert,
+        nif::insert_new,
         nif::update_elem,
         nif::update_counter,
         nif::get_row,

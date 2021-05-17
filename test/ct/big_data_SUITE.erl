@@ -34,6 +34,7 @@
 
 all() ->
     [insert_check,
+     insert_new,
      not_found,
      remove,
      remove_row,
@@ -89,6 +90,27 @@ insert_check(_Config) ->
                            term = {a, 1},
                            time = 1},
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
+    ok.
+
+insert_new(_) ->
+    {ok, Ref} = big_data_nif:new(),
+    BigKey = <<"a">>,
+    ok =
+        big_data_nif:insert_new(Ref,
+                                BigKey,
+                                [#row_data{row_id = <<"1">>,
+                                           time = 1,
+                                           term = 1},
+                                 #row_data{row_id = <<"2">>,
+                                           time = 1,
+                                           term = 2}]),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = 1},
+                  #row_data{row_id = <<"2">>,
+                            time = 1,
+                            term = 2}],
+                 big_data_nif:get(Ref, BigKey)),
     ok.
 
 not_found(_) ->
@@ -252,6 +274,7 @@ update_counter(_) ->
                             #row_data{row_id = <<"1">>,
                                       term = 1,
                                       time = 10}),
+    ?assertEqual(notfound, big_data_nif:update_counter(Ref, <<"t">>, <<"1">>, {0, 2})),
     ?assertEqual([true], big_data_nif:update_counter(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual(#row_data{row_id = <<"1">>,
                            term = 3,
@@ -287,6 +310,8 @@ update_elem(_) ->
                             #row_data{row_id = <<"1">>,
                                       term = 1,
                                       time = 10}),
+
+    ?assertEqual(notfound, big_data_nif:update_elem(Ref, <<"b">>, <<"0">>, {0, 2})),
     ?assertEqual([true], big_data_nif:update_elem(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual(#row_data{row_id = <<"1">>,
                            term = 2,

@@ -5,10 +5,10 @@ extern crate rand;
 use bencher::Bencher;
 use big_data::big_data::{BigData, RowData, RowTerm};
 
-const MAX: u128= 10000;
+const MAX: u128 = 10000;
 fn gen_data() -> BigData {
     let mut big_data = BigData::new();
-    for row_id in 0..MAX{
+    for row_id in 0..MAX {
         let row = RowData::new(&row_id.to_string(), RowTerm::Integer(row_id as i64), row_id);
         big_data.insert(row);
     }

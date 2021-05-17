@@ -31,4 +31,34 @@
 -record(row_data,
         {row_id = <<"">> :: binary(), term = {} :: term(), time = 0 :: integer()}).
 
+-type ation() :: insert | update_elem | remove.
+-type maybe(T) :: undefined | T.
+-type wal_write_strategy() :: default | o_sync.
+
+                         % writes all pending in one write(2) call then calls fsync(1)
+
+-type big_data() :: reference().
+-type big_key() :: binary().
+-type row_id() :: binary().
+-type row_id_list() :: [row_id()].
+-type row_data() :: #row_data{}.
+-type row_data_list() :: [row_data()].
+-type t() :: integer().
+-type pos() :: integer().
+%%  pos from 0
+-type elem_spec() :: {pos(), term()} | pos().
+-type elem_specs() :: [elem_spec()].
+
+% like delay writes but tries to open the file using synchronous io
+% (O_SYNC) rather than a write(2) followed by an fsync.
+-define(BD_BIG_DATA_REF, persistent_term:get(big_data)).
+
+-record(bd_wal,
+        {id = 0 :: pos_integer(),
+         action = write :: ation(),
+         args = [] :: list(),
+         time = erlang:system_time(1000) :: pos_integer()}).
+
+-define(BD_NOTFOUND, notfound).
+
 -endif.

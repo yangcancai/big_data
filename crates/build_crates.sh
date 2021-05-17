@@ -21,7 +21,11 @@ help(){
 bench(){
     cargo bench --manifest-path=crates/big_data/Cargo.toml 
 }
+fmt(){
+    cargo fmt --manifest-path=crates/big_data/Cargo.toml 
+}
 case $1 in
+fmt) fmt;;
 bench) bench;;
 build) build;;
 test) test;;

@@ -37,19 +37,25 @@ impl NifBigData {
             self.data.insert(big_key.to_string(), big_data);
         }
     }
-    fn update_elem(&mut self, big_key: &str, row_id: &str, elem_spec: RowTerm) -> Vec<bool> {
-        if let Some(big_data) = self.data.get_mut(big_key) {
-            big_data.update_elem(row_id, elem_spec)
-        } else {
-            vec![false]
-        }
+    fn update_elem(
+        &mut self,
+        big_key: &str,
+        row_id: &str,
+        elem_spec: RowTerm,
+    ) -> Option<Vec<bool>> {
+        self.data
+            .get_mut(big_key)
+            .map(|big_data| big_data.update_elem(row_id, elem_spec))
     }
-    fn update_counter(&mut self, big_key: &str, row_id: &str, elem_spec: RowTerm) -> Vec<bool> {
-        if let Some(big_data) = self.data.get_mut(big_key) {
-            big_data.update_counter(row_id, elem_spec)
-        } else {
-            vec![false]
-        }
+    fn update_counter(
+        &mut self,
+        big_key: &str,
+        row_id: &str,
+        elem_spec: RowTerm,
+    ) -> Option<Vec<bool>> {
+        self.data
+            .get_mut(big_key)
+            .map(|big_data| big_data.update_counter(row_id, elem_spec))
     }
     // get
     fn get_row(&self, big_key: &str, row_id: &str) -> Option<&RowData> {
@@ -174,6 +180,20 @@ fn insert<'a>(
     write.insert(u8_to_string(&big_key).as_ref(), row_data);
     Ok(ok().encode(env))
 }
+
+#[rustler::nif]
+fn insert_new<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<NifBigDataResource>,
+    big_key: LazyBinary<'a>,
+    row_data_list: Vec<RowData>,
+) -> NifResult<Term<'a>> {
+    let mut write = resource.write();
+    for row in row_data_list{
+        write.insert(u8_to_string(&big_key).as_ref(), row);
+    }
+    Ok(ok().encode(env))
+}
 #[rustler::nif]
 fn update_elem<'a>(
     env: Env<'a>,
@@ -188,7 +208,11 @@ fn update_elem<'a>(
         u8_to_string(&row_id).as_ref(),
         elem_spec,
     );
-    Ok(b.encode(env))
+    if b == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok(b.encode(env))
+    }
 }
 #[rustler::nif]
 fn update_counter<'a>(
@@ -204,7 +228,11 @@ fn update_counter<'a>(
         u8_to_string(&row_id).as_ref(),
         elem_spec,
     );
-    Ok(b.encode(env))
+    if b == None {
+        Ok(atoms::notfound().encode(env))
+    } else {
+        Ok(b.encode(env))
+    }
 }
 #[rustler::nif]
 fn get_row<'a>(

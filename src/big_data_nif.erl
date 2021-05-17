@@ -1,28 +1,15 @@
 -module(big_data_nif).
 
 %% API
--export([new/0, new/1, insert/3, get_row/3, get/2, get_range/4, get_range_row_ids/4,
-         get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1, remove/2, remove_row/3,
-         remove_row_ids/4, update_elem/4, update_counter/4]).
+-export([new/0, new/1, insert/3, insert_new/3, get_row/3, get/2, get_range/4,
+         get_range_row_ids/4, get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1, remove/2,
+         remove_row/3, remove_row_ids/4, update_elem/4, update_counter/4]).
 %% Native library support
 -export([load/0]).
 
 -on_load load/0.
 
 -include("big_data.hrl").
-
--opaque big_data() :: reference().
-
--type big_key() :: binary().
--type row_id() :: binary().
--type row_id_list() :: [row_id()].
--type row_data() :: #row_data{}.
--type row_data_list() :: [row_data()].
--type t() :: integer().
--type pos() :: integer().
-%%  pos from 0
--type elem_spec() :: {pos(), term()} | pos().
--type elem_specs() :: [elem_spec()].
 
 -export_type([big_data/0]).
 
@@ -38,11 +25,15 @@ new(_Opts) ->
 insert(_Ref, _BigKey, #row_data{} = _RowData) ->
     not_loaded(?LINE).
 
+-spec insert_new(Ref :: big_data(), BigKey :: big_key(), row_data_list()) -> ok.
+insert_new(_Ref, _BigKey, _RowDataList) ->
+    not_loaded(?LINE).
+
 -spec update_elem(Ref :: big_data(),
                   BigKey :: big_key(),
                   RowID :: binary(),
                   ElemSpecs :: elem_specs()) ->
-                     [boolean()].
+                     [boolean()] | ?BD_NOTFOUND.
 update_elem(_Ref, _BigKey, _RowID, _ElemSpecs) ->
     not_loaded(?LINE).
 
@@ -50,12 +41,12 @@ update_elem(_Ref, _BigKey, _RowID, _ElemSpecs) ->
                      BigKey :: big_key(),
                      RowID :: binary(),
                      ElemSpecs :: elem_specs()) ->
-                        [boolean()].
+                        [boolean()] | ?BD_NOTFOUND.
 update_counter(_Ref, _BigKey, _RowID, _ElemSpecs) ->
     not_loaded(?LINE).
 
 -spec get_row(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
-                 row_data() | notfound.
+                 row_data() | ?BD_NOTFOUND.
 get_row(_Ref, _BigKey, _RowID) ->
     not_loaded(?LINE).
 
@@ -84,7 +75,7 @@ get_row_ids(_Ref, _BigKey, _Time) ->
     not_loaded(?LINE).
 
 -spec get_time_index(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
-                        t() | notfound.
+                        t() | ?BD_NOTFOUND.
 get_time_index(_Ref, _BigKey, _RowID) ->
     not_loaded(?LINE).
 
