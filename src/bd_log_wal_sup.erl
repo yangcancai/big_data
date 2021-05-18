@@ -69,10 +69,10 @@ init([]) ->
         #{strategy => one_for_one,
           intensity => MaxRestarts,
           period => MaxSecondsBetweenRestarts},
-
+    Dir = application:get_env(big_data, dir, "data"),
     AChild =
         #{id => bd_log_wal,
-          start => {bd_log_wal, start_link, []},
+          start => {bd_log_wal, start_link, [#{dir => Dir}]},
           restart => permanent,
           shutdown => 2000,
           type => worker,

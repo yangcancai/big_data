@@ -27,7 +27,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0]).
+-export([start_link/0, stop/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 -export([open/2, close/1, sync/1, datasync/1, write/2, read/2, position/2]).
@@ -47,6 +47,9 @@ open(File, Modes) ->
 close(Fd) ->
     gen_server:cast(?MODULE, {close, self()}),
     file:close(Fd).
+
+stop() ->
+    gen_server:call(?MODULE, stop).
 
 sync(Fd) ->
     update(io_sync, fun() -> file:sync(Fd) end).
@@ -105,6 +108,8 @@ init([]) ->
     [ets:insert(?TABLE, {{Op, Counter}, 0}) || Op <- ?COUNT_TIME, Counter <- [count, time]],
     {ok, #state{}}.
 
+handle_call(stop, _, State) ->
+    {stop, normal, ok, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.

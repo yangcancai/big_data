@@ -20,3 +20,5 @@ crates/big_data/.vscode/
 crates/big_data/target
 crates/big_data/libpath
 priv/libbig_data.so
+data
+logs

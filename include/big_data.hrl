@@ -26,6 +26,23 @@
 
 -ifndef(H_big_data_nif).
 
+%% logging shim
+-define(DEBUG(Fmt, Args), ?DISPATCH_LOG(debug, Fmt, Args)).
+-define(INFO(Fmt, Args), ?DISPATCH_LOG(info, Fmt, Args)).
+-define(NOTICE(Fmt, Args), ?DISPATCH_LOG(notice, Fmt, Args)).
+-define(WARN(Fmt, Args), ?DISPATCH_LOG(warning, Fmt, Args)).
+-define(WARNING(Fmt, Args), ?DISPATCH_LOG(warning, Fmt, Args)).
+-define(ERR(Fmt, Args), ?DISPATCH_LOG(error, Fmt, Args)).
+-define(ERROR(Fmt, Args), ?DISPATCH_LOG(error, Fmt, Args)).
+-define(DISPATCH_LOG(Level, Fmt, Args),
+        %% same as OTP logger does when using the macro
+        (persistent_term:get('$bd_logger')):log(Level,
+                                                Fmt,
+                                                Args,
+                                                #{mfa => {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY},
+                                                  file => ?FILE,
+                                                  line => ?LINE}),
+        ok).
 -define(H_big_data_nif, true).
 -define(SYNC_INTERVAL, 5000).
 -define(BD_LOG_META, bd_log_meta).
@@ -65,6 +82,20 @@
          action = write :: ation(),
          args = [] :: list(),
          time = erlang:system_time(1000) :: pos_integer()}).
+-record(bd_log_wal_state,
+        {fd :: maybe(file:io_device()),
+         data_dir = <<"/tmp/big_data">> :: string(),
+         file_name :: maybe(file:filename()),
+         file_num = 1 :: pos_integer(),
+         file_size = 0 :: pos_integer(),
+         log_meta_ref :: reference(),
+         wal_buffer_tid :: reference(),
+         checkpoint_seq = 0 :: pos_integer(),
+         last_checkpoint_time = 0 :: pos_integer(),
+         log_seq = 0 :: pos_integer(),
+         max_size_bytes = ?BD_WAL_MAX_SIZE_BYTES :: pos_integer(),
+         write_strategy = default :: wal_write_strategy(),
+         file_modes = [raw, write, read, binary] :: list()}).
 
 -define(BD_NOTFOUND, notfound).
 

@@ -11,7 +11,6 @@
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
--define(TABLES, [bd_metrics, bd_open_file_metrics, bd_io_metrics]).
 
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
@@ -26,10 +25,6 @@ start_link() ->
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
 init([]) ->
-    _ = [ets:new(Table, [named_table, public, {write_concurrency, true}])
-         || Table <- ?TABLES],
-    {ok, Ref} = big_data_nif:new(),
-    ok = persistent_term:put(big_data, Ref),
     SupFlags =
         #{strategy => one_for_one,
           intensity => 1,
