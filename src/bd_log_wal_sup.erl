@@ -26,10 +26,12 @@
 
 -author("yangcancai").
 
+-include("big_data.hrl").
+
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, start_child/0, stop_child/0]).
 %% Supervisor callbacks
 -export([init/1]).
 
@@ -44,9 +46,37 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-%%%===================================================================
-%%% Supervisor callbacks
-%%%===================================================================
+-spec start_child() -> supervisor:startchild_ret().
+start_child() ->
+    Dir = application:get_env(big_data, dir, "data"),
+    WaitingTimeout = application:get_env(big_data, wating_recover_timeout, 0),
+    Child =
+        #{id => bd_log_wal,
+          start => {bd_log_wal, start_link, [#{dir => Dir, waiting_pid => self()}]},
+          restart => permanent,
+          shutdown => 2000,
+          type => worker,
+          modules => [bd_log_wal]},
+    S = erlang:system_time(1000),
+    ?DEBUG("Waiting wal recover...", []),
+    {ok, Pid} = supervisor:start_child(?MODULE, Child),
+    receive
+        {_, ?BD_RECOVER_FINISHED} ->
+            ok
+    after WaitingTimeout ->
+        ?ERROR("Waiting wal recover timeout: ~p ms", [WaitingTimeout]),
+        exit({timeout, waiting_recover_timeout})
+    end,
+    ?DEBUG("Wal recover finished, Recover total_time = ~p ms",
+           [erlang:system_time(1000) - S]),
+    {ok, Pid}.
+
+stop_child() ->
+    ok = bd_log_wal:stop(),
+    supervisor:delete_child(?MODULE,
+                            bd_log_wal).%%%===================================================================
+                                        %%% Supervisor callbacks
+                                        %%%===================================================================
 
 %% @private
 %% @doc Whenever a supervisor is started using supervisor:start_link/[2,3],
@@ -69,16 +99,8 @@ init([]) ->
         #{strategy => one_for_one,
           intensity => MaxRestarts,
           period => MaxSecondsBetweenRestarts},
-    Dir = application:get_env(big_data, dir, "data"),
-    AChild =
-        #{id => bd_log_wal,
-          start => {bd_log_wal, start_link, [#{dir => Dir}]},
-          restart => permanent,
-          shutdown => 2000,
-          type => worker,
-          modules => [bd_log_wal]},
 
-    {ok, {SupFlags, [AChild]}}.
+    {ok, {SupFlags, []}}.
 
 %%%===================================================================
 %%% Internal functions

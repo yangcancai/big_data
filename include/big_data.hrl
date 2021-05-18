@@ -76,6 +76,7 @@
 % like delay writes but tries to open the file using synchronous io
 % (O_SYNC) rather than a write(2) followed by an fsync.
 -define(BD_BIG_DATA_REF, persistent_term:get(big_data)).
+-define(BD_RECOVER_FINISHED, recover_finished).
 
 -record(bd_wal,
         {id = 0 :: pos_integer(),

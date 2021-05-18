@@ -16,9 +16,12 @@ start(_StartType, _StartArgs) ->
     {ok, Ref} = big_data_nif:new(),
     ok = persistent_term:put(big_data, Ref),
     {ok, _} = bd_store_redis:start_link("127.0.0.1", 6379, 0, "123456", 5000),
-    big_data_sup:start_link().
+    {ok, P} = big_data_sup:start_link(),
+    {ok, _} = bd_log_wal_sup:start_child(),
+    {ok, P}.
 
 stop(_State) ->
+    bd_log_wal_sup:stop_child(),
     ok.
 
 %% internal functions

@@ -38,7 +38,8 @@ all() ->
 init_per_suite(Config) ->
     ok = application:load(?APP),
     new_meck(),
-    Config.
+    Dir = "/tmp/big_data/test",
+    [{dir, Dir} | Config].
 
 end_per_suite(Config) ->
     del_meck(),
@@ -46,6 +47,7 @@ end_per_suite(Config) ->
 
 init_per_testcase(_Case, Config) ->
     bd_ets:new(),
+    os:cmd("rm -rf " ++ ?config(dir, Config)),
     {ok, Ref} = big_data_nif:new(),
     ok = persistent_term:put(big_data, Ref),
     ok = persistent_term:put('$bd_logger', logger),
@@ -92,9 +94,7 @@ del_meck() ->
     meck:unload().
 
 recover(Config) ->
-    _Tab = ?config(backend_store, Config),
-    Dir = "/tmp/big_data/test",
-    os:cmd("rm -rf " ++ Dir),
+    Dir = ?config(dir, Config),
     bd_log_wal:make_dir(Dir),
     %% write frame to wal
     State =
@@ -123,7 +123,29 @@ recover(Config) ->
     bd_log_wal:terminate(normal, S),
     ok.
 
-write(_) ->
+write(Config) ->
+    {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config)}),
+    Wal = #bd_wal{id = 1,
+                  action = insert,
+                  args = [<<"player">>, <<"1">>, 1, {a, 1}]},
+    ok = bd_log_wal:write_sync(Wal),
+    ?assertEqual([Wal], bd_log_wal:wal_buffer()),
+    ok = bd_log_wal:stop(),
+    {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config), waiting_pid => self()}),
+    receive
+        {_, ?BD_RECOVER_FINISHED} ->
+            ok
+    end,
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = {a, 1}}],
+                 bd_backend_store:handle_get(<<"player">>)),
+    BigData = persistent_term:get(big_data),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = {a, 1}}],
+                 big_data:get(BigData, <<"player">>)),
+
     ok.
 
 checkpoint(_) ->

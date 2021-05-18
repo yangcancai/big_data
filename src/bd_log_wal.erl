@@ -41,8 +41,8 @@
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %% API
--export([start_link/1]).
--export([write/1, checkpoint/0]).
+-export([start_link/1, i/0, stop/0, wal_buffer/0, checkpoint_seq/0]).
+-export([write/1, write_sync/1, checkpoint/0]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
@@ -60,9 +60,26 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+-spec checkpoint_seq() -> integer().
+checkpoint_seq() ->
+    S = i(),
+    S#bd_log_wal_state.checkpoint_seq.
+
+-spec wal_buffer() -> list().
+wal_buffer() ->
+    S = i(),
+    ets:tab2list(S#bd_log_wal_state.wal_buffer_tid).
+
+-spec i() -> #bd_log_wal_state{}.
+i() ->
+    sys:get_state(?MODULE).
+
 -spec write(Wal :: #bd_wal{}) -> ok.
 write(Wal) ->
     gen_server:cast(?MODULE, Wal).
+
+write_sync(Wal) ->
+    gen_server:call(?MODULE, Wal).
 
 checkpoint() ->
     gen_server:call(?MODULE, checkpoint, 60000).
@@ -73,9 +90,11 @@ checkpoint() ->
 start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
 
-%%%===================================================================
-%%% gen_server callbacks
-%%%===================================================================
+stop() ->
+    gen_server:call(?MODULE,
+                    stop).%%%===================================================================
+                          %%% gen_server callbacks
+                          %%%===================================================================
 
 %% @private
 %% @doc Initializes the server
@@ -111,6 +130,11 @@ handle_call(checkpoint,
     {reply,
      {ok, {Seq, NewSeq, erlang:system_time(1000) - S}},
      State#bd_log_wal_state{checkpoint_seq = NewSeq}};
+handle_call(#bd_wal{} = Wal, _, State) ->
+    {noreply, NewState} = handle_cast(Wal, State),
+    {reply, ok, NewState};
+handle_call(stop, _, State) ->
+    {stop, normal, ok, State};
 handle_call(_Request, _From, State = #bd_log_wal_state{}) ->
     {reply, ok, State}.
 
@@ -170,6 +194,7 @@ terminate(_Reason, _State = #bd_log_wal_state{fd = Fd, log_meta_ref = Ref}) ->
     ok = dets:sync(?BD_LOG_META),
     _ = dets:close(Ref),
     ok = close_existing(Fd),
+    ?DEBUG("Wal process terminate ..", []),
     ok.
 
 %% @private
@@ -185,7 +210,8 @@ code_change(_OldVsn, State = #bd_log_wal_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 recover_wal(#{dir := Dir} = Config) ->
-    ?DEBUG("recover: ..~p", [Config]),
+    Pid = maps:get(waiting_pid, Config, undefined),
+    ?DEBUG("Recover: ..~p", [Config]),
     Tid = ets:new(?BD_WAL_BUFFER,
                   [public, set, {keypos, #bd_wal.id}, {write_concurrency, true}]),
     ok = make_dir(Dir),
@@ -215,7 +241,14 @@ recover_wal(#{dir := Dir} = Config) ->
                           log_meta_ref = Ref,
                           wal_buffer_tid = Tid,
                           checkpoint_seq = NewCheckpointSeq},
-    roll_over(State).
+    NewS = roll_over(State),
+    notify_recover_finished(Pid),
+    NewS.
+
+notify_recover_finished(undefined) ->
+    ok;
+notify_recover_finished(Pid) ->
+    Pid ! {self(), ?BD_RECOVER_FINISHED}.
 
 prepare_file(File, Modes) ->
     Tmp = make_tmp(File),
