@@ -184,8 +184,8 @@ code_change(_OldVsn, State = #bd_log_wal_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-recover_wal(#{dir := Dir}) ->
-    ?DEBUG("recover: ..~p", [Dir]),
+recover_wal(#{dir := Dir} = Config) ->
+    ?DEBUG("recover: ..~p", [Config]),
     Tid = ets:new(?BD_WAL_BUFFER,
                   [public, set, {keypos, #bd_wal.id}, {write_concurrency, true}]),
     ok = make_dir(Dir),
