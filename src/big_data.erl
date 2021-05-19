@@ -36,10 +36,15 @@ command(#bd_wal{action = Action, args = Args} = Wal)
          Action == update_counter;
          Action == update_elem;
          Action == remove_row ->
-    bd_log_wal:write(Wal),
-    apply(Action, Args);
+    case persistent_term:get('$bd_log_wal_started') of
+        true ->
+            bd_log_wal:write_sync(Wal),
+            apply(?MODULE, Action, [?BD_BIG_DATA_REF | Args]);
+        false ->
+            {error, bd_log_wal_not_started}
+    end;
 command(#bd_wal{action = Action, args = Args}) ->
-    apply(Action, Args).
+    apply(?MODULE, Action, [?BD_BIG_DATA_REF | Args]).
 
 -spec insert(Ref :: big_data(),
              BigKey :: big_key(),

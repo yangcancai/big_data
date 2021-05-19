@@ -72,6 +72,7 @@
 %%  pos from 0
 -type elem_spec() :: {pos(), term()} | pos().
 -type elem_specs() :: [elem_spec()].
+-type from() :: {pid(), Tag :: term()}.
 
 % like delay writes but tries to open the file using synchronous io
 % (O_SYNC) rather than a write(2) followed by an fsync.
@@ -96,7 +97,8 @@
          log_seq = 0 :: pos_integer(),
          max_size_bytes = ?BD_WAL_MAX_SIZE_BYTES :: pos_integer(),
          write_strategy = default :: wal_write_strategy(),
-         file_modes = [raw, write, read, binary] :: list()}).
+         file_modes = [raw, write, read, binary] :: list(),
+         stop_from :: maybe(from())}).
 
 -define(BD_NOTFOUND, notfound).
 

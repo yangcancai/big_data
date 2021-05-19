@@ -127,14 +127,15 @@ handle_call(checkpoint,
             #bd_log_wal_state{wal_buffer_tid = Tid, checkpoint_seq = Seq} = State) ->
     S = erlang:system_time(1000),
     NewSeq = checkpoint(Tid, State#bd_log_wal_state.log_meta_ref, Seq),
+    delete_wal_buffer(Tid, NewSeq),
     {reply,
      {ok, {Seq, NewSeq, erlang:system_time(1000) - S}},
      State#bd_log_wal_state{checkpoint_seq = NewSeq}};
 handle_call(#bd_wal{} = Wal, _, State) ->
     {noreply, NewState} = handle_cast(Wal, State),
     {reply, ok, NewState};
-handle_call(stop, _, State) ->
-    {stop, normal, ok, State};
+handle_call(stop, From, State) ->
+    {stop, normal, State#bd_log_wal_state{stop_from = From}};
 handle_call(_Request, _From, State = #bd_log_wal_state{}) ->
     {reply, ok, State}.
 
@@ -179,6 +180,10 @@ handle_info(tick,
         _ ->
             {noreply, State}
     end;
+handle_info({waiting_pid, Pid}, State = #bd_log_wal_state{}) ->
+    ok = persistent_term:put('$bd_log_wal_started', true),
+    notify_recover_finished(Pid),
+    {noreply, State};
 handle_info(_Info, State = #bd_log_wal_state{}) ->
     {noreply, State}.
 
@@ -190,11 +195,22 @@ handle_info(_Info, State = #bd_log_wal_state{}) ->
 -spec terminate(Reason :: normal | shutdown | {shutdown, term()} | term(),
                 State :: #bd_log_wal_state{}) ->
                    term().
-terminate(_Reason, _State = #bd_log_wal_state{fd = Fd, log_meta_ref = Ref}) ->
+terminate(Reason,
+          _State =
+              #bd_log_wal_state{stop_from = From,
+                                fd = Fd,
+                                log_meta_ref = Ref}) ->
     ok = dets:sync(?BD_LOG_META),
     _ = dets:close(Ref),
     ok = close_existing(Fd),
-    ?DEBUG("Wal process terminate ..", []),
+    ?DEBUG("Wal process terminate, Reason: ~p..", [Reason]),
+    case From of
+        undefined ->
+            ignore;
+        _ ->
+            gen:reply(From, ok)
+    end,
+    ok = persistent_term:put('$bd_log_wal_started', false),
     ok.
 
 %% @private
@@ -242,13 +258,19 @@ recover_wal(#{dir := Dir} = Config) ->
                           wal_buffer_tid = Tid,
                           checkpoint_seq = NewCheckpointSeq},
     NewS = roll_over(State),
-    notify_recover_finished(Pid),
+    self() ! {waiting_pid, Pid},
     NewS.
 
 notify_recover_finished(undefined) ->
     ok;
-notify_recover_finished(Pid) ->
-    Pid ! {self(), ?BD_RECOVER_FINISHED}.
+notify_recover_finished(Pid) when is_pid(Pid) ->
+    case erlang:is_process_alive(Pid) of
+        true ->
+            ?DEBUG("Notify recover finished, Pid = ~p", [Pid]),
+            Pid ! {self(), ?BD_RECOVER_FINISHED};
+        _ ->
+            ok
+    end.
 
 prepare_file(File, Modes) ->
     Tmp = make_tmp(File),
@@ -384,7 +406,7 @@ checkpoint(Tid, Ref, CheckpointSeq) when is_integer(CheckpointSeq) ->
                   {CheckpointSeq, []},
                   Tid),
 
-    ok = checkpoint(Ref, lists:reverse(List)),
+    ok = checkpoint(Ref, lists:sort(List)),
     NewSeq.
 
 checkpoint(_, []) ->
@@ -402,9 +424,10 @@ checkpoint(Ref,
         ?BD_NOTFOUND ->
             ok;
         RowDataList ->
-            ok = bd_backend_store:handle_put(BigKey, RowDataList),
-            update_checkpoint_seq(Ref, ID)
+            ok = bd_backend_store:handle_put(BigKey, RowDataList)
     end,
+    %% warning: directly update disk, so slowly
+    update_checkpoint_seq(Ref, ID),
     checkpoint(Ref, Rest).
 
 lookup_checkpoint_seq(Ref) ->

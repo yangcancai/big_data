@@ -71,8 +71,10 @@ bd_store_expect(Mod, Tab) ->
         meck:expect(Mod,
                     handle_get,
                     fun(BigKey) ->
-                       [{_, V}] = ets:lookup(Tab, BigKey),
-                       V
+                       case ets:lookup(Tab, BigKey) of
+                           [{_, V}] -> V;
+                           [] -> []
+                       end
                     end),
     ok =
         meck:expect(Mod,
@@ -107,6 +109,11 @@ recover(Config) ->
     NewState = bd_log_wal:write_wal(State, Wal),
     ok = bd_log_wal:close_existing(NewState#bd_log_wal_state.fd),
     S = bd_log_wal:recover_wal(#{dir => Dir}),
+    receive
+        {waiting_pid, _} ->
+            ok = persistent_term:put('$bd_log_wal_started', true),
+            ok
+    end,
     BigData = persistent_term:get(big_data),
     ?assertEqual(1, S#bd_log_wal_state.checkpoint_seq),
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
@@ -124,13 +131,23 @@ recover(Config) ->
     ok.
 
 write(Config) ->
-    {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config)}),
+    {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config), waiting_pid => self()}),
+    receive
+        {_, ?BD_RECOVER_FINISHED} ->
+            ok
+    end,
     Wal = #bd_wal{id = 1,
                   action = insert,
                   args = [<<"player">>, <<"1">>, 1, {a, 1}]},
     ok = bd_log_wal:write_sync(Wal),
-    ?assertEqual([Wal], bd_log_wal:wal_buffer()),
+    Wal1 =
+        #bd_wal{id = 2,
+                action = insert,
+                args = [<<"player">>, <<"2">>, 1, {a, 1}]},
+    ok = bd_log_wal:write_sync(Wal1),
+    ?assertEqual([Wal, Wal1], bd_log_wal:wal_buffer()),
     ok = bd_log_wal:stop(),
+    timer:sleep(10),
     {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config), waiting_pid => self()}),
     receive
         {_, ?BD_RECOVER_FINISHED} ->
@@ -138,15 +155,53 @@ write(Config) ->
     end,
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
+                            term = {a, 1}},
+                  #row_data{row_id = <<"2">>,
+                            time = 1,
                             term = {a, 1}}],
                  bd_backend_store:handle_get(<<"player">>)),
     BigData = persistent_term:get(big_data),
     ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = {a, 1}},
+                  #row_data{row_id = <<"2">>,
                             time = 1,
                             term = {a, 1}}],
                  big_data:get(BigData, <<"player">>)),
 
     ok.
 
-checkpoint(_) ->
+checkpoint(Config) ->
+    {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config)}),
+    Wal = #bd_wal{id = 1,
+                  action = insert,
+                  args = [<<"player">>, <<"1">>, 1, {a, 1}]},
+    ok = big_data:command(Wal),
+    Wal1 =
+        #bd_wal{id = 2,
+                action = insert,
+                args = [<<"player">>, <<"2">>, 1, {a, 1}]},
+    ok = big_data:command(Wal1),
+    ?assertEqual([], bd_backend_store:handle_get(<<"player">>)),
+    {ok, _} = bd_log_wal:checkpoint(),
+    S = bd_log_wal:i(),
+    ?assertEqual(2, S#bd_log_wal_state.checkpoint_seq),
+    ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
+    ?assertEqual(2, bd_log_wal:lookup_checkpoint_seq(S#bd_log_wal_state.log_meta_ref)),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = {a, 1}},
+                  #row_data{row_id = <<"2">>,
+                            time = 1,
+                            term = {a, 1}}],
+                 bd_backend_store:handle_get(<<"player">>)),
+    BigData = persistent_term:get(big_data),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            time = 1,
+                            term = {a, 1}},
+                  #row_data{row_id = <<"2">>,
+                            time = 1,
+                            term = {a, 1}}],
+                 big_data:get(BigData, <<"player">>)),
+
     ok.

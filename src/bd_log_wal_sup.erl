@@ -49,7 +49,7 @@ start_link() ->
 -spec start_child() -> supervisor:startchild_ret().
 start_child() ->
     Dir = application:get_env(big_data, dir, "data"),
-    WaitingTimeout = application:get_env(big_data, wating_recover_timeout, 0),
+    WaitingTimeout = application:get_env(big_data, wating_recover_timeout, 60000),
     Child =
         #{id => bd_log_wal,
           start => {bd_log_wal, start_link, [#{dir => Dir, waiting_pid => self()}]},
@@ -72,9 +72,9 @@ start_child() ->
     {ok, Pid}.
 
 stop_child() ->
-    ok = bd_log_wal:stop(),
-    supervisor:delete_child(?MODULE,
-                            bd_log_wal).%%%===================================================================
+    ok = bd_log_wal:stop().    % supervisor:delete_child(?MODULE,
+
+                            % bd_log_wal).%%%===================================================================
                                         %%% Supervisor callbacks
                                         %%%===================================================================
 
