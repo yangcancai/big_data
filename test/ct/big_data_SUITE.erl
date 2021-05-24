@@ -47,6 +47,7 @@ all() ->
      lookup_elem].
 
 init_per_suite(Config) ->
+    application:set_env(?APP, dir, "/tmp/big_data_test"),
     {ok, _} = application:ensure_all_started(?APP),
     new_meck(),
     Config.
@@ -90,6 +91,12 @@ insert_check(_Config) ->
                            term = {a, 1},
                            time = 1},
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
+    ok =
+        big_data_nif:insert(Ref,
+                            BigKey,
+                            #row_data{row_id = ?BD_RAND_BYTES(32),
+                                      term = ?BD_RAND_BYTES(500),
+                                      time = 1}),
     ok.
 
 insert_new(_) ->

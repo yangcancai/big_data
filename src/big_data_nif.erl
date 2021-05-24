@@ -1,9 +1,9 @@
 -module(big_data_nif).
 
 %% API
--export([new/0, new/1, insert/3, insert_new/3, get_row/3, get/2, get_range/4,
-         get_range_row_ids/4, get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1, remove/2,
-         remove_row/3, remove_row_ids/4, update_elem/4, update_counter/4]).
+-export([new/0, new/1, insert/3, insert_new/3, get_row/3, get/2, big_key_list/1,
+         get_range/4, get_range_row_ids/4, get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1,
+         remove/2, remove_row/3, remove_row_ids/4, update_elem/4, update_counter/4]).
 %% Native library support
 -export([load/0]).
 
@@ -52,6 +52,9 @@ get_row(_Ref, _BigKey, _RowID) ->
 
 -spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list() | ?BD_NOTFOUND.
 get(_Ref, _BigKey) ->
+    not_loaded(?LINE).
+
+big_key_list(_Ref) ->
     not_loaded(?LINE).
 
 -spec get_range(Ref :: big_data(),

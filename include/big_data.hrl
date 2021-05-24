@@ -90,10 +90,8 @@
          file_name :: maybe(file:filename()),
          file_num = 1 :: pos_integer(),
          file_size = 0 :: pos_integer(),
-         log_meta_ref :: reference(),
          wal_buffer_tid :: reference(),
-         checkpoint_seq = 0 :: pos_integer(),
-         last_checkpoint_time = 0 :: pos_integer(),
+         id_seq = 0 :: pos_integer(),
          log_seq = 0 :: pos_integer(),
          max_size_bytes = ?BD_WAL_MAX_SIZE_BYTES :: pos_integer(),
          write_strategy = default :: wal_write_strategy(),
@@ -101,5 +99,20 @@
          stop_from :: maybe(from())}).
 
 -define(BD_NOTFOUND, notfound).
+% "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
+-define(BD_CHAR_TUPLE,
+        {97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
+         115, 116, 117, 118, 119, 120, 121, 122, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+         77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 48, 49, 50, 51, 52, 53, 54, 55,
+         56, 57}).
+-define(BD_RAND_BYTES(N),
+        erlang:list_to_binary([erlang:element(
+                                   rand:uniform(
+                                       erlang:size(?BD_CHAR_TUPLE)),
+                                   ?BD_CHAR_TUPLE)
+                               || _ <- lists:seq(1, N)])).
+-define(BD_COUNTER_ID_SEQ, 1).
+-define(BD_COUNTER_CHECKPOINT_SEQ, 2).
+-define(BD_COUNTER_LIST, [id_seq, checkpoint_seq]).
 
 -endif.

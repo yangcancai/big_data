@@ -96,6 +96,13 @@ impl NifBigData {
     fn to_list(&self, big_key: &str) -> Option<Vec<&RowData>> {
         self.get(big_key).map(|big_data| big_data.to_list())
     }
+    fn big_key_list(&self) -> Vec<&String>{
+        let mut l = Vec::new();
+        for key in self.data.keys(){
+            l.push(key);
+        }
+        l
+    }
     // clear all big_data
     fn clear(&mut self) {
         self.data.clear();
@@ -242,6 +249,15 @@ fn get<'a>(
     } else {
         Ok((list).encode(env))
     }
+}
+#[rustler::nif]
+fn big_key_list(
+    env: Env,
+    resource: ResourceArc<NifBigDataResource>,
+) -> NifResult<Term> {
+    let read = resource.read();
+    let list = read.big_key_list();
+    Ok((list).encode(env))
 }
 #[rustler::nif]
 fn get_range<'a>(
