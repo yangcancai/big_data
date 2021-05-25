@@ -197,12 +197,12 @@ recover_wal(#{dir := Dir} = Config) ->
                   [public, set, {keypos, #bd_wal.id}, {write_concurrency, true}]),
     bd_checkpoint:set_tid(Tid),
     ok = make_dir(Dir),
-    WalFiles =
-        lists:sort(
-            filelib:wildcard(
-                filename:join(Dir, "*.wal"))),
-    %% read chunk to wal_buffer
     CheckpointSeq = bd_checkpoint:lookup_checkpoint_seq(),
+    WalFiles =
+        maybe_not_checkpoint_files(sort_file(filelib:wildcard(
+                                                 filename:join(Dir, "*.wal"))),
+                                   CheckpointSeq),
+    %% read chunk to wal_buffer
     ?DEBUG("CheckpointSeq = ~p", [CheckpointSeq]),
     bd_counter:put(?BD_COUNTER_CHECKPOINT_SEQ, CheckpointSeq),
     NewIdSeq =
@@ -212,13 +212,13 @@ recover_wal(#{dir := Dir} = Config) ->
                        close_existing(Fd),
                        IdSeq
                     end,
-                    0,
+                    CheckpointSeq,
                     WalFiles),
     bd_counter:put(?BD_COUNTER_ID_SEQ, NewIdSeq),
     CurFileNum = extract_file_num(lists:reverse(WalFiles)),
     %% proccess all action
     process_all_action(Tid),
-    bd_checkpoint:sync(60000),
+    bd_checkpoint:sync(600000),
     State =
         #bd_log_wal_state{file_num = CurFileNum,
                           data_dir = Dir,
@@ -289,7 +289,7 @@ open_and_read_header(File) ->
 %% recover wal chunck to ets table
 recover_wal_chunk(Tid, CheckpointSeq, Fd, ChunkSz) ->
     Chunk = read_from_wal_file(Fd, ChunkSz),
-    recover_frames(Tid, CheckpointSeq, Fd, Chunk, ChunkSz, 0).
+    recover_frames(Tid, CheckpointSeq, Fd, Chunk, ChunkSz, CheckpointSeq).
 
 recover_frames(_,
                _CheckpointSeq,
@@ -425,11 +425,13 @@ close_existing(Fd) ->
 
 roll_over(#bd_log_wal_state{fd = Fd,
                             data_dir = DataDir,
+                            id_seq = IdSeq,
                             file_num = FileNum} =
               State) ->
     close_existing(Fd),
     Num = FileNum + 1,
-    FileName = filename:join(DataDir, zpad_filename("", "wal", Num)),
+    FileName =
+        filename:join(DataDir, zpad_filename(erlang:integer_to_list(IdSeq + 1), "wal", Num)),
     S = State#bd_log_wal_state{file_num = Num, file_name = FileName},
     open_wal(S).
 
@@ -461,3 +463,40 @@ zpad_filename("", Ext, Num) ->
 zpad_filename(Prefix, Ext, Num) ->
     lists:flatten(
         io_lib:format("~s_~8..0B.~s", [Prefix, Num, Ext])).
+
+sort_file(Files) ->
+    lists:sort(fun sort_file/2, Files).
+
+sort_file(A, B) ->
+    case string:split(A, "_") of
+        [_, A1] ->
+            [_, B1] = string:split(B, "_"),
+            A1 < B1;
+        [A1] ->
+            [B1] = string:split(B, "_"),
+            A1 < B1
+    end.
+
+maybe_not_checkpoint_files([], _) ->
+    [];
+maybe_not_checkpoint_files(Files, CheckpointSeq) ->
+    N = maybe_not_checkpoint_files(Files, CheckpointSeq, 1),
+    lists:sublist(Files, N, erlang:length(Files)).
+
+maybe_not_checkpoint_files([], _, N) ->
+    N - 1;
+maybe_not_checkpoint_files([File | Rest], CheckpointSeq, N) ->
+    B = case string:split(
+                 filename:basename(File), "_")
+        of
+            [_] ->
+                true;
+            [First, _] ->
+                erlang:list_to_integer(First) >= CheckpointSeq
+        end,
+    case B of
+        true ->
+            N;
+        false ->
+            maybe_not_checkpoint_files(Rest, CheckpointSeq, N + 1)
+    end.

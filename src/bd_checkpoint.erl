@@ -51,6 +51,7 @@ sync() ->
     gen_server:call(?MODULE, checkpoint).
 
 sync(Timeout) ->
+    ?DEBUG("Checkpoint sync timeout:~p", [Timeout]),
     gen_server:call(?MODULE, checkpoint, Timeout).
 
 async() ->

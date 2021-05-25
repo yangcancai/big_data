@@ -32,7 +32,7 @@ test: epmd dialyzer
 	./rebar3 do ct --dir test/ct --config test/ct/ct.config --sys_config config/test.config -v
 
 eunit: epmd
-	./rebar3 do eunit -v
+	./rebar3 do eunit --dir test/eunit -v
 
 ct: epmd
 	sh crates/build_crates.sh clippy

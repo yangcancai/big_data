@@ -118,7 +118,7 @@ recover(Config) ->
     ?assertEqual(1, bd_checkpoint:checkpoint_seq()),
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
     ?assertEqual(1, bd_checkpoint:lookup_checkpoint_seq()),
-    ?assertEqual(filename:join(Dir, "00000002.wal"), S#bd_log_wal_state.file_name),
+    ?assertEqual(filename:join(Dir, "1_00000002.wal"), S#bd_log_wal_state.file_name),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}}],

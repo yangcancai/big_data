@@ -69,8 +69,15 @@ overview() ->
                 lists:zip(?FIELDS, L)),
     Tps = Time div Cmd,
     TotalTime = persistent_term:get(bd_bench_e) - persistent_term:get(bd_bench_s),
+    S = TotalTime div 1000,
+    Sec = case S of
+              0 ->
+                  1;
+              S ->
+                  S
+          end,
     R#{aver => Tps div 1000,
-       tps => Cmd div (TotalTime div 1000),
+       tps => Cmd div Sec,
        total_time => TotalTime}.
 
 wait_loop([]) ->
