@@ -103,7 +103,7 @@ recover(Config) ->
     %% write frame to wal
     State =
         bd_log_wal:open_wal(#bd_log_wal_state{file_num = 1,
-                                              file_name = filename:join(Dir, "00000001.wal"),
+                                              file_name = filename:join(Dir, "1_00000001.wal"),
                                               data_dir = Dir}),
     Wal = #bd_wal{action = insert, args = [<<"player">>, <<"1">>, 1, {a, 1}]},
     NewState = bd_log_wal:write_wal(State, Wal),
@@ -118,7 +118,7 @@ recover(Config) ->
     ?assertEqual(1, bd_checkpoint:checkpoint_seq()),
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
     ?assertEqual(1, bd_checkpoint:lookup_checkpoint_seq()),
-    ?assertEqual(filename:join(Dir, "1_00000002.wal"), S#bd_log_wal_state.file_name),
+    ?assertEqual(filename:join(Dir, "2_00000002.wal"), S#bd_log_wal_state.file_name),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}}],
