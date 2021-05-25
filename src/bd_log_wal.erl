@@ -42,7 +42,7 @@
 
 %% API
 -export([start_link/1, i/0, stop/0, make_dir/1, wal_buffer/0, id_seq/0]).
--export([write/1, write_sync/1, delete_wal_buffer/2]).
+-export([write/1, write_sync/1, delete_wal_buffer/3, process_all_action/2]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
@@ -61,8 +61,7 @@
 %%% API
 %%%===================================================================
 id_seq() ->
-    S = i(),
-    S#bd_log_wal_state.id_seq.
+    bd_counter:get(?BD_COUNTER_ID_SEQ).
 
 -spec wal_buffer() -> list().
 wal_buffer() ->
@@ -203,7 +202,6 @@ recover_wal(#{dir := Dir} = Config) ->
                                                  filename:join(Dir, "*.wal"))),
                                    CheckpointSeq),
     %% read chunk to wal_buffer
-    ?DEBUG("CheckpointSeq = ~p", [CheckpointSeq]),
     bd_counter:put(?BD_COUNTER_CHECKPOINT_SEQ, CheckpointSeq),
     NewIdSeq =
         lists:foldl(fun(File, _Acc) ->
@@ -214,6 +212,8 @@ recover_wal(#{dir := Dir} = Config) ->
                     end,
                     CheckpointSeq,
                     WalFiles),
+    ?DEBUG("CheckpointSeq = ~p, id_seq = ~p, walfiles = ~p",
+           [CheckpointSeq, NewIdSeq, WalFiles]),
     bd_counter:put(?BD_COUNTER_ID_SEQ, NewIdSeq),
     CurFileNum = extract_file_num(lists:reverse(WalFiles)),
     %% proccess all action
@@ -365,11 +365,10 @@ process_all_action(Ref, [#bd_wal{action = Action, args = Args} | Rest]) ->
     apply(big_data, Action, [Ref] ++ Args),
     process_all_action(Ref, Rest).
 
-delete_wal_buffer(Tid, CheckpointSeq) ->
-    Ms = ets:fun2ms(fun(#bd_wal{id = ID}) when ID =< CheckpointSeq -> true end),
-    _ = ets:select_delete(Tid, Ms).
+delete_wal_buffer(Tid, CheckpointSeq, NewSeq) ->
+    [ets:delete(Tid, Id) || Id <- lists:seq(CheckpointSeq, NewSeq)].
 
-insert_wal_buffer(Tid, #bd_wal{} = Log) ->
+insert_wal_buffer(Tid, #bd_wal{id = _ID} = Log) ->
     true = ets:insert(Tid, Log).
 
 write_wal(#bd_log_wal_state{fd = Fd,
@@ -486,17 +485,24 @@ maybe_not_checkpoint_files(Files, CheckpointSeq) ->
 maybe_not_checkpoint_files([], _, N) ->
     N - 1;
 maybe_not_checkpoint_files([File | Rest], CheckpointSeq, N) ->
-    B = case string:split(
+    {Eq, B} =
+        case string:split(
                  filename:basename(File), "_")
         of
             [_] ->
-                true;
+                {false, true};
             [First, _] ->
-                erlang:list_to_integer(First) >= CheckpointSeq
+                {erlang:list_to_integer(First) == CheckpointSeq,
+                 erlang:list_to_integer(First) >= CheckpointSeq}
         end,
     case B of
         true ->
-            N;
+            case N > 1 andalso Eq == false of
+                true ->
+                    N - 1;
+                _ ->
+                    N
+            end;
         false ->
             maybe_not_checkpoint_files(Rest, CheckpointSeq, N + 1)
     end.

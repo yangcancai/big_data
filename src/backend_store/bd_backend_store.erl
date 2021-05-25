@@ -31,7 +31,7 @@
 -callback handle_put(big_key(), row_data_list()) -> ok.
 -callback handle_del(big_key()) -> ok.
 
--export([handle_get/1, handle_put/2, handle_del/1, set_backend_store/1]).
+-export([handle_get/1, handle_put/2, handle_put/1, handle_del/1, set_backend_store/1]).
 
 -spec set_backend_store(Module :: atom()) -> ok.
 set_backend_store(Module) ->
@@ -46,6 +46,11 @@ handle_get(BigKey) ->
 handle_put(BigKey, RowDataList) ->
     Mod = m(),
     Mod:handle_put(BigKey, RowDataList).
+
+-spec handle_put([{BigKey :: big_key(), RowDataList :: row_data_list()}]) -> ok.
+handle_put(Chunk) ->
+    Mod = m(),
+    Mod:handle_put(Chunk).
 
 -spec handle_del(BigKey :: big_key()) -> ok.
 handle_del(BigKey) ->

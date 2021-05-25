@@ -30,7 +30,7 @@
 -include("big_data.hrl").
 
 %% API
--export([start_link/1, i/0, sync/0, sync/1, async/0, set_tid/1, checkpoint_seq/0,
+-export([start_link/1, i/0, sync/0, sync/1, async/0, set_tid/1, seq/0,
          lookup_checkpoint_seq/0]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -60,7 +60,7 @@ async() ->
 i() ->
     sys:get_state(?MODULE).
 
-checkpoint_seq() ->
+seq() ->
     bd_counter:get(?BD_COUNTER_CHECKPOINT_SEQ).
 
 lookup_checkpoint_seq() ->
@@ -129,12 +129,20 @@ handle_cast(checkpoint,
                                  tid = Tid,
                                  checkpoint_seq = CheckpointSeq} =
                 State) ->
-    NewSeq = checkpoint(Tid, CheckpointSeq),
-    bd_counter:add(?BD_COUNTER_CHECKPOINT_SEQ, NewSeq - CheckpointSeq),
-    update_checkpoint_seq(Ref, NewSeq),
-    {noreply,
-     State#bd_checkpoint_state{checkpoint_seq = NewSeq,
-                               last_checkpoint_time = erlang:system_time(1000)}};
+    IdSeq = bd_log_wal:id_seq(),
+    case IdSeq =< CheckpointSeq of
+        true ->
+            ?DEBUG("Finish checkpoint id_seq = ~p, checkpointseq = ~p", [IdSeq, CheckpointSeq]),
+            {noreply, State#bd_checkpoint_state{last_checkpoint_time = erlang:system_time(1000)}};
+        false ->
+            NewSeq = checkpoint(Tid, CheckpointSeq, IdSeq),
+            bd_counter:add(?BD_COUNTER_CHECKPOINT_SEQ, NewSeq - CheckpointSeq),
+            update_checkpoint_seq(Ref, NewSeq),
+            NewS =
+                State#bd_checkpoint_state{checkpoint_seq = NewSeq,
+                                          last_checkpoint_time = erlang:system_time(1000)},
+            handle_cast(checkpoint, NewS)
+    end;
 handle_cast(_Request, State = #bd_checkpoint_state{}) ->
     {noreply, State}.
 
@@ -154,6 +162,7 @@ handle_info(tick,
              Now - LastTime >= ?BD_WAL_CHECKPOINT_TIMEOUT
     of
         true ->
+            ?DEBUG("Time to checkpoint id_seq = ~p, checkpoint_seq = ~p", [LogSeq, CheckpointSeq]),
             handle_cast(checkpoint, State);
         _ ->
             {noreply, State}
@@ -195,41 +204,45 @@ lookup_checkpoint_seq(Ref) ->
     end.
 
 update_checkpoint_seq(Ref, Seq) ->
-    ?DEBUG("Update checkpoint seq: ~p", [Seq]),
     ok = dets:insert(Ref, {checkpoint_seq, Seq}).
 
-checkpoint(undefined, CheckpointSeq) ->
+checkpoint(undefined, CheckpointSeq, _) ->
     CheckpointSeq;
-checkpoint(Tid, CheckpointSeq) when is_integer(CheckpointSeq) ->
-    {NewSeq, List} =
-        ets:foldl(fun (#bd_wal{id = Id} = Row, {Seq, Acc}) when Id > CheckpointSeq ->
-                          {erlang:max(Id, Seq), [Row | Acc]};
-                      (_, Acc) ->
-                          Acc
-                  end,
-                  {CheckpointSeq, []},
-                  Tid),
-
-    ok = checkpoint(lists:sort(List)),
+checkpoint(Tid, CheckpointSeq, IdSeq) when is_integer(CheckpointSeq) ->
+    {NewSeq, List} = get_chunk(Tid, CheckpointSeq, IdSeq),
+    %% memory change
+    bd_log_wal:process_all_action(?BD_BIG_DATA_CHECKPOINT_REF, List),
+    checkpoint_chunk(?BD_BIG_DATA_CHECKPOINT_REF, List),
     %% delete already commit data
-    bd_log_wal:delete_wal_buffer(Tid, NewSeq),
+    bd_log_wal:delete_wal_buffer(Tid, CheckpointSeq, NewSeq),
     NewSeq.
 
-checkpoint([]) ->
-    ok;
-checkpoint([#bd_wal{id = _ID,
-                    action = Action,
-                    args = [BigKey | _]}
-            | Rest])
-    when Action == insert;
-         Action == remove_row;
-         Action == update_counter;
-         Action == update_elem ->
-    case big_data_nif:get(?BD_BIG_DATA_REF, BigKey) of
-        ?BD_NOTFOUND ->
-            ok;
-        RowDataList ->
-            ok = bd_backend_store:handle_put(BigKey, RowDataList)
-    end,
-    %% warning: directly update disk, so slowly
-    checkpoint(Rest).
+checkpoint_chunk(Ref, List) ->
+    %% merge
+    BigKeyList =
+        sets:to_list(
+            sets:from_list([BigKey || #bd_wal{args = [BigKey | _]} <- List])),
+    Chunk =
+        lists:foldl(fun(BigKey, Acc) ->
+                       case big_data_nif:get(Ref, BigKey) of
+                           ?BD_NOTFOUND -> Acc;
+                           RowDataList -> [{BigKey, RowDataList} | Acc]
+                       end
+                    end,
+                    [],
+                    BigKeyList),
+    bd_backend_store:handle_put(
+        lists:reverse(Chunk)).
+
+get_chunk(Tid, CheckpointSeq, IdSeq) ->
+    Max = max_chunk_id(CheckpointSeq, IdSeq),
+    List =
+        [begin
+             [#bd_wal{} = R] = ets:lookup(Tid, Id),
+             R
+         end
+         || Id <- lists:seq(CheckpointSeq + 1, Max)],
+    {Max, List}.
+
+max_chunk_id(CheckpointSeq, IdSeq) ->
+    erlang:min(CheckpointSeq + 1000, IdSeq).

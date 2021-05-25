@@ -29,7 +29,7 @@
 
 -include("big_data.hrl").
 
--export([start_link/5, handle_get/1, pid/0, handle_put/2, handle_del/1]).
+-export([start_link/5, handle_get/1, pid/0, handle_put/2, handle_put/1, handle_del/1]).
 
 start_link(Ip, Port, Pwd, Db, ReconnSleep) ->
     {ok, Pid} = eredis:start_link(Ip, Port, Pwd, Db, ReconnSleep),
@@ -53,6 +53,13 @@ handle_del(BigKey) ->
 -spec handle_put(BigKey :: big_key(), RowDataList :: row_data_list()) -> ok.
 handle_put(BigKey, RowDataList) ->
     {ok, <<"OK">>} = eredis:q(pid(), ["SET", BigKey, erlang:term_to_binary(RowDataList)]),
+    ok.
+
+handle_put(Chunk) ->
+    CmdList =
+        lists:flatten([[BigKey, erlang:term_to_binary(RowDataList)]
+                       || {BigKey, RowDataList} <- Chunk]),
+    {ok, <<"OK">>} = eredis:q(pid(), ["MSET" | CmdList], 60000),
     ok.
 
 pid() ->

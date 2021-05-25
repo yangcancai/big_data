@@ -82,10 +82,10 @@ maybe_not_checkpoint_files_test() ->
                                                         "data/4_00000004.wal"],
                                                        2)),
 
-    ?assertEqual(["data/4_00000004.wal"],
+    ?assertEqual(["data/2_00000002.wal", "data/5_00000004.wal"],
                  bd_log_wal:maybe_not_checkpoint_files(["data/1_00000001.wal",
                                                         "data/2_00000002.wal",
-                                                        "data/4_00000004.wal"],
+                                                        "data/5_00000004.wal"],
                                                        3)),
     ?assertEqual(["data/4_00000004.wal"],
                  bd_log_wal:maybe_not_checkpoint_files(["data/1_00000001.wal",
@@ -98,5 +98,9 @@ maybe_not_checkpoint_files_test() ->
                                                         "data/2_00000002.wal",
                                                         "data/4_00000004.wal"],
                                                        5)),
+    ?assertEqual(["data/974509_00000027.wal", "data/1297037_00000028.wal"],
+                 bd_log_wal:maybe_not_checkpoint_files(["data/974509_00000027.wal",
+                                                        "data/1297037_00000028.wal"],
+                                                       1028680)),
 
     ok.

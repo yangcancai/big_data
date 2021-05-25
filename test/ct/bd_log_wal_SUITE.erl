@@ -50,7 +50,10 @@ init_per_testcase(_Case, Config) ->
     bd_counter:new(),
     os:cmd("rm -rf " ++ ?config(dir, Config)),
     {ok, Ref} = big_data_nif:new(),
+    {ok, Ref1} = big_data_nif:new(),
     ok = persistent_term:put(big_data, Ref),
+    ok = persistent_term:put(big_data_checkpoint, Ref1),
+
     ok = persistent_term:put('$bd_logger', logger),
     {ok, FileHandler} = bd_file_handle:start_link(),
     {ok, _} = bd_checkpoint:start_link(#{dir => ?config(dir, Config)}),
@@ -87,6 +90,15 @@ bd_store_expect(Mod, Tab) ->
                     end),
     ok =
         meck:expect(Mod,
+                    handle_put,
+                    fun(List) ->
+                       [true = ets:insert(Tab, {BigKey, RowDataList})
+                        || {BigKey, RowDataList} <- List],
+                       ok
+                    end),
+
+    ok =
+        meck:expect(Mod,
                     handle_del,
                     fun(BigKey) ->
                        ets:delete(Tab, BigKey),
@@ -115,7 +127,7 @@ recover(Config) ->
             ok
     end,
     BigData = persistent_term:get(big_data),
-    ?assertEqual(1, bd_checkpoint:checkpoint_seq()),
+    ?assertEqual(1, bd_checkpoint:seq()),
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
     ?assertEqual(1, bd_checkpoint:lookup_checkpoint_seq()),
     ?assertEqual(filename:join(Dir, "2_00000002.wal"), S#bd_log_wal_state.file_name),
@@ -222,7 +234,7 @@ checkpoint(Config) ->
     ?assertEqual([], bd_backend_store:handle_get(<<"player">>)),
     bd_checkpoint:sync(),
     S = bd_log_wal:i(),
-    ?assertEqual(2, bd_checkpoint:checkpoint_seq()),
+    ?assertEqual(2, bd_checkpoint:seq()),
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
     ?assertEqual(2, bd_checkpoint:lookup_checkpoint_seq()),
     ?assertEqual([#row_data{row_id = <<"1">>,
