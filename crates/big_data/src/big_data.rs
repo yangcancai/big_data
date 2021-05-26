@@ -4,6 +4,7 @@ use nif::convert_to_row_term;
 use ordermap::set::OrderSet;
 use rustler::error::Error;
 use rustler::types::atom::Atom;
+use rustler::types::binary::OwnedBinary;
 use rustler::types::tuple::make_tuple;
 use rustler::Decoder;
 use rustler::Encoder;
@@ -11,6 +12,7 @@ use rustler::Env;
 use rustler::NifResult;
 use rustler::Term;
 use std::collections::{BTreeMap, HashMap};
+use std::io::Write;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Bound::Included;
@@ -54,6 +56,7 @@ pub enum RowTerm {
     Tuple(Vec<RowTerm>),
     List(Vec<RowTerm>),
     Bitstring(String),
+    Bin(Vec<u8>),
 }
 impl RowData {
     pub fn new(row_id: &str, row_term: RowTerm, time: u128) -> Self {
@@ -711,6 +714,10 @@ impl PartialEq for RowTerm {
                 RowTerm::Bitstring(inner) => self_inner == inner,
                 _ => false,
             },
+            RowTerm::Bin(self_inner) => match other {
+                RowTerm::Bin(inner) => self_inner == inner,
+                _ => false,
+            },
         }
     }
 }
@@ -728,6 +735,11 @@ impl Encoder for RowTerm {
             }
             RowTerm::List(inner) => inner.encode(env),
             RowTerm::Bitstring(inner) => inner.encode(env),
+            RowTerm::Bin(inner) => {
+                let mut binary = OwnedBinary::new(inner.len()).unwrap();
+                binary.as_mut_slice().write_all(&inner).unwrap();
+                binary.release(env).encode(env)
+            }
         }
     }
 }

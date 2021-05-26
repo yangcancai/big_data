@@ -96,9 +96,9 @@ impl NifBigData {
     fn to_list(&self, big_key: &str) -> Option<Vec<&RowData>> {
         self.get(big_key).map(|big_data| big_data.to_list())
     }
-    fn big_key_list(&self) -> Vec<&String>{
+    fn big_key_list(&self) -> Vec<&String> {
         let mut l = Vec::new();
-        for key in self.data.keys(){
+        for key in self.data.keys() {
             l.push(key);
         }
         l
@@ -251,10 +251,7 @@ fn get<'a>(
     }
 }
 #[rustler::nif]
-fn big_key_list(
-    env: Env,
-    resource: ResourceArc<NifBigDataResource>,
-) -> NifResult<Term> {
+fn big_key_list(env: Env, resource: ResourceArc<NifBigDataResource>) -> NifResult<Term> {
     let read = resource.read();
     let list = read.big_key_list();
     Ok((list).encode(env))
@@ -489,7 +486,10 @@ pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
     } else if term.is_binary() {
         match term.decode() {
             Ok(b) => Some(RowTerm::Bitstring(b)),
-            Err(_) => None,
+            Err(_) => match term.decode_as_binary() {
+                Ok(bb) => Some(RowTerm::Bin(bb.to_vec())),
+                Err(_) => None,
+            },
         }
     } else {
         None

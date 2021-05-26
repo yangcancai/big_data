@@ -409,3 +409,9 @@ fn to_list() {
     list.push(&d);
     assert_eq!(list, big_data.to_list());
 }
+#[test]
+fn rowterm_eq() {
+    let a = RowTerm::Bin(vec![1, 2, 3]);
+    let b = RowTerm::Bin(vec![1, 2, 3]);
+    assert_eq!(a, b)
+}

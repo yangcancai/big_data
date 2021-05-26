@@ -44,7 +44,8 @@ all() ->
      get_time_index,
      update_elem,
      update_counter,
-     lookup_elem].
+     lookup_elem,
+     insert_binary].
 
 init_per_suite(Config) ->
     application:set_env(?APP, dir, "/tmp/big_data_test"),
@@ -426,4 +427,20 @@ remove_row_ids(_) ->
 
     ?assertEqual(ok, big_data_nif:remove_row_ids(Ref, BigKey, 0, 1)),
     ?assertEqual([], big_data_nif:get(Ref, BigKey)),
+    ok.
+
+insert_binary(_) ->
+    {ok, Ref} = big_data_nif:new(),
+    BigKey = <<"a">>,
+    [begin
+         ok = big_data:clear(Ref),
+         Term = crypto:strong_rand_bytes(100),
+         RowData =
+             #row_data{row_id = <<"1">>,
+                       term = Term,
+                       time = 1},
+         ok = big_data_nif:insert(Ref, BigKey, RowData),
+         ?assertEqual([RowData], big_data_nif:get(Ref, BigKey))
+     end
+     || _ <- lists:seq(1, 100)],
     ok.
