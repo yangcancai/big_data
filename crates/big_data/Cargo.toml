@@ -16,6 +16,6 @@ harness = false
 rustler = "0.22.0-rc.0"
 serde = { version = "1.0", features = ["derive"] }
 ordermap = "0.3.5"
-bencher = "*"
+bencher = "0.1.5"
 rand = "0.8.0"
 
