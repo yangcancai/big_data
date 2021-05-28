@@ -1,10 +1,13 @@
 [package]
 name = "big_data"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["yangcancai <yangcancai0112@gmail.com>"]
-license = "MIT/Apache-2.0"
+license-file = "LICENSE"
 build = "build.rs"
 description = "Safe Rust code for creating Erlang NIF to store big data"
+repository = "https://github.com/yangcancai/big_data/"
+homepage = "https://github.com/yangcancai/big_data"
+
 
 [lib]
 name = "big_data"
