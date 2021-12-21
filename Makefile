@@ -4,7 +4,7 @@ all: compile dialyzer test
 ### build
 ###===================================================================
 .PHONY: co compile es escriptize run
-
+export PROFILE=release
 co:compile
 compile:
 	./rebar3 compile
