@@ -15,7 +15,6 @@ deps
 .rebar3
 _build/
 _checkouts/
-.cargo
 crates/big_data/.vscode/
 crates/big_data/target
 crates/big_data/libpath
