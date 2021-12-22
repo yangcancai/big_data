@@ -1,21 +1,22 @@
-use atoms;
-use nif::convert_to_integer;
-use nif::convert_to_row_term;
+use std::collections::{BTreeMap, HashMap};
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Bound::Included;
 use ordermap::set::OrderSet;
+use std::io::Write;
 use rustler::error::Error;
 use rustler::types::atom::Atom;
 use rustler::types::binary::OwnedBinary;
-use rustler::types::tuple::make_tuple;
 use rustler::Decoder;
 use rustler::Encoder;
 use rustler::Env;
 use rustler::NifResult;
 use rustler::Term;
-use std::collections::{BTreeMap, HashMap};
-use std::io::Write;
-use std::ops::Add;
-use std::ops::AddAssign;
-use std::ops::Bound::Included;
+use rustler::types::tuple::get_tuple;
+use rustler::types::tuple::make_tuple;
+use super::atoms;
+
+
 
 pub struct Time(pub u128);
 #[derive(Debug, Clone)]
@@ -91,9 +92,9 @@ impl BigData {
     ///  
     /// # Examples
     /// ```
-    ///    use big_data::big_data::BigData;
-    ///    use big_data::big_data::RowTerm;
-    ///    use big_data::big_data::RowData;
+    ///    use core::big_data::BigData;
+    ///    use core::big_data::RowTerm;
+    ///    use core::big_data::RowData;
     ///    let mut big_data = BigData::new();
     ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
     ///    let insert_result = big_data.insert(RowData::new("1", r.clone(), 1234567890));
@@ -131,7 +132,7 @@ impl BigData {
     ///
     /// ```
     ///
-    /// use big_data::big_data::{BigData, RowData, RowTerm};
+    /// use core::big_data::{BigData, RowData, RowTerm};
     /// let mut big_data = BigData::new();
     /// big_data.clear();
     /// insert_data(&mut big_data, "a", &1);
@@ -167,7 +168,7 @@ impl BigData {
     ///
     /// ```
     ///
-    /// use big_data::big_data::{BigData, RowData, RowTerm};
+    /// use core::big_data::{BigData, RowData, RowTerm};
     ///  let mut big_data = BigData::new();
     ///  insert_data(&mut big_data, "a", &0);
     ///  insert_data(&mut big_data, "b", &1);
@@ -193,7 +194,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```        
-    /// use big_data::big_data::{BigData, RowData, RowTerm};
+    /// use core::big_data::{BigData, RowData, RowTerm};
     ///  let mut big_data = BigData::new();
     ///  insert_data(&mut big_data, "a", &0);
     ///  insert_data(&mut big_data, "b", &1);
@@ -388,7 +389,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    ///     use big_data::big_data::{BigData,RowTerm,RowData};
+    ///     use core::big_data::{BigData,RowTerm,RowData};
     ///    let mut big_data = BigData::new();
     ///    let r = RowTerm::Tuple(vec![RowTerm::Integer(1), RowTerm::Atom("a".to_string())]);
     ///    let row1 = RowData::new("a", r.clone(), 1234567890);
@@ -406,7 +407,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    ///     use big_data::big_data::{RowTerm,RowData,BigData};
+    ///     use core::big_data::{RowTerm,RowData,BigData};
     ///    let mut big_data = BigData::new();
     ///    assert_eq!(None, big_data.get_time_index("a"));
     ///    insert_data(&mut big_data, "a", &1);
@@ -430,7 +431,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    /// use big_data::big_data::{BigData,RowTerm,RowData};
+    /// use core::big_data::{BigData,RowTerm,RowData};
     /// let mut big_data = BigData::new();
     /// let ids: Vec<&String> = Vec::new();
     /// assert_eq!(ids, big_data.get_row_ids(1));
@@ -465,7 +466,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    /// use big_data::big_data::{RowData,RowTerm,BigData};
+    /// use core::big_data::{RowData,RowTerm,BigData};
     /// let mut big_data = BigData::new();
     ///  // get range RowData
     ///  let vec_data1: Vec<&RowData> = Vec::new();
@@ -492,7 +493,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    ///  use big_data::big_data::{BigData, RowData, RowTerm};
+    ///  use core::big_data::{BigData, RowData, RowTerm};
     ///  let mut big_data = BigData::new();
     ///  let mut ids: Vec<&str> = Vec::new();
     ///  assert_eq!(ids, big_data.get_range_row_ids(0,1));
@@ -527,7 +528,7 @@ impl BigData {
     /// # Examples
     ///
     /// ```
-    /// use big_data::big_data::{BigData, RowData, RowTerm};
+    /// use core::big_data::{BigData, RowData, RowTerm};
     /// let mut big_data = BigData::new();
     /// let d = RowData::new("a", RowTerm::Integer(0), 10);
     /// big_data.insert(d.clone());
@@ -558,7 +559,7 @@ impl BigData {
     ///
     /// ```
     ///
-    ///   use big_data::big_data::{BigData, RowData, RowTerm};
+    ///   use core::big_data::{BigData, RowData, RowTerm};
     ///   let mut big_data = BigData::new();
     ///    big_data.remove("0");
     ///    insert_data(&mut big_data, "a", &1);
@@ -593,7 +594,7 @@ impl BigData {
     ///
     /// ```
     ///
-    /// use big_data::big_data::{BigData, RowData, RowTerm};
+    /// use core::big_data::{BigData, RowData, RowTerm};
     /// let mut big_data = BigData::new();
     /// big_data.remove_row_ids(0, 10);
     /// insert_data(&mut big_data, "0", &11);
@@ -631,7 +632,7 @@ impl BigData {
     }
 }
 impl RowTerm {
-    fn is_integer(&self) -> bool {
+    pub fn is_integer(&self) -> bool {
         matches!(self, RowTerm::Integer(_))
     }
 }
@@ -721,6 +722,7 @@ impl PartialEq for RowTerm {
         }
     }
 }
+
 impl Encoder for RowTerm {
     fn encode<'a>(&self, env: Env<'a>) -> Term<'a> {
         match self {
@@ -799,3 +801,73 @@ impl<'a> Decoder<'a> for RowData {
         Err(Error::BadArg)
     }
 }
+use std::convert::TryFrom;
+pub fn convert_to_integer(term: &Term) -> Option<u128> {
+    if term.is_number() {
+        match term.decode::<i64>() {
+            Ok(i) => {
+                let u: u128 = u128::try_from(i).unwrap();
+                Some(u)
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
+    }
+}
+pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
+    if term.is_number() {
+        match term.decode() {
+            Ok(i) => Some(RowTerm::Integer(i)),
+            Err(_) => None,
+        }
+    } else if term.is_atom() {
+        match term.atom_to_string() {
+            Ok(a) => Some(RowTerm::Atom(a)),
+            Err(_) => None,
+        }
+    } else if term.is_tuple() {
+        match get_tuple(*term) {
+            Ok(t) => {
+                let initial_length = t.len();
+                let inner_terms: Vec<RowTerm> = t
+                    .into_iter()
+                    .filter_map(|i: Term| convert_to_row_term(&i))
+                    .collect();
+                if initial_length == inner_terms.len() {
+                    Some(RowTerm::Tuple(inner_terms))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    } else if term.is_list() {
+        match term.decode::<Vec<Term>>() {
+            Ok(l) => {
+                let initial_length = l.len();
+                let inner_terms: Vec<RowTerm> = l
+                    .into_iter()
+                    .filter_map(|i: Term| convert_to_row_term(&i))
+                    .collect();
+                if initial_length == inner_terms.len() {
+                    Some(RowTerm::List(inner_terms))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    } else if term.is_binary() {
+        match term.decode() {
+            Ok(b) => Some(RowTerm::Bitstring(b)),
+            Err(_) => match term.decode_as_binary() {
+                Ok(bb) => Some(RowTerm::Bin(bb.to_vec())),
+                Err(_) => None,
+            },
+        }
+    } else {
+        None
+    }
+}
+

@@ -21,3 +21,4 @@ crates/big_data/libpath
 priv/libbig_data.so
 data
 logs
+target

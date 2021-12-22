@@ -13,7 +13,7 @@ name = "big_data"
 version = "0.1.2"
 dependencies = [
  "bencher",
- "ordermap",
+ "core",
  "rand",
  "rustler",
  "serde",
@@ -24,6 +24,14 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "ordermap",
+ "rustler",
+]
 
 [[package]]
 name = "getrandom"
@@ -129,9 +137,9 @@ dependencies = [
 
 [[package]]
 name = "rustler"
-version = "0.22.0-rc.0"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6627953c4983f7808f569d4df17d7de55893ed1e1a85ca4ef5ab95569b83832e"
+checksum = "08281b5931d395414fe2e3e786d4b21dbcffc18d848d542d8a2da03026cb7cb8"
 dependencies = [
  "lazy_static",
  "rustler_codegen",
@@ -140,9 +148,9 @@ dependencies = [
 
 [[package]]
 name = "rustler_codegen"
-version = "0.22.0-rc.0"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b10e7791e788906c4394c980022210fbbeb75e75f7d9166b7bd0169e194ed4d"
+checksum = "96f4adf61752ab8c56df102591ff97c93d4e5c7a9ff04b82cdfa85dfa072544c"
 dependencies = [
  "heck",
  "proc-macro2",

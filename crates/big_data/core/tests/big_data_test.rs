@@ -1,7 +1,7 @@
-extern crate big_data;
-use big_data::big_data::BigData;
-use big_data::big_data::RowData;
-use big_data::big_data::RowTerm;
+extern crate core;
+use core::big_data::BigData;
+use core::big_data::RowData;
+use core::big_data::RowTerm;
 #[test]
 fn insert() {
     let mut big_data = BigData::new();

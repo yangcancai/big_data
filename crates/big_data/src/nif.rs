@@ -3,18 +3,22 @@ use std::{
     collections::HashMap,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
+use rustler::types::binary::OwnedBinary;
+use rustler::Encoder;
+use rustler::Env;
+use rustler::NifResult;
+use rustler::Term;
+use rustler::resource::ResourceArc;
+use rustler::types::tuple::make_tuple;
+use rustler::Binary;
 
 use atoms;
 use atoms::ok;
-use big_data::BigData;
-use big_data::RowData;
-use big_data::RowTerm;
-use big_data::Time;
+use core::big_data::BigData;
+use core::big_data::RowData;
+use core::big_data::RowTerm;
+use core::big_data::Time;
 use options::NifBigDataOptions;
-use rustler::resource::ResourceArc;
-use rustler::types::tuple::get_tuple;
-use rustler::types::tuple::make_tuple;
-use rustler::{Binary, Encoder, Env, NifResult, OwnedBinary, Term};
 // =================================================================================================
 // resource
 // =================================================================================================
@@ -424,74 +428,5 @@ fn u8_to_string(msg: &[u8]) -> String {
     match a {
         Cow::Owned(own_msg) => own_msg,
         Cow::Borrowed(b_msg) => b_msg.to_string(),
-    }
-}
-use std::convert::TryFrom;
-pub fn convert_to_integer(term: &Term) -> Option<u128> {
-    if term.is_number() {
-        match term.decode::<i64>() {
-            Ok(i) => {
-                let u: u128 = u128::try_from(i).unwrap();
-                Some(u)
-            }
-            Err(_) => None,
-        }
-    } else {
-        None
-    }
-}
-pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
-    if term.is_number() {
-        match term.decode() {
-            Ok(i) => Some(RowTerm::Integer(i)),
-            Err(_) => None,
-        }
-    } else if term.is_atom() {
-        match term.atom_to_string() {
-            Ok(a) => Some(RowTerm::Atom(a)),
-            Err(_) => None,
-        }
-    } else if term.is_tuple() {
-        match get_tuple(*term) {
-            Ok(t) => {
-                let initial_length = t.len();
-                let inner_terms: Vec<RowTerm> = t
-                    .into_iter()
-                    .filter_map(|i: Term| convert_to_row_term(&i))
-                    .collect();
-                if initial_length == inner_terms.len() {
-                    Some(RowTerm::Tuple(inner_terms))
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        }
-    } else if term.is_list() {
-        match term.decode::<Vec<Term>>() {
-            Ok(l) => {
-                let initial_length = l.len();
-                let inner_terms: Vec<RowTerm> = l
-                    .into_iter()
-                    .filter_map(|i: Term| convert_to_row_term(&i))
-                    .collect();
-                if initial_length == inner_terms.len() {
-                    Some(RowTerm::List(inner_terms))
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        }
-    } else if term.is_binary() {
-        match term.decode() {
-            Ok(b) => Some(RowTerm::Bitstring(b)),
-            Err(_) => match term.decode_as_binary() {
-                Ok(bb) => Some(RowTerm::Bin(bb.to_vec())),
-                Err(_) => None,
-            },
-        }
-    } else {
-        None
     }
 }
