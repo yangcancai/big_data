@@ -2,8 +2,9 @@
 extern crate bencher;
 extern crate big_data;
 extern crate rand;
+extern crate core;
 use bencher::Bencher;
-use big_data::big_data::{BigData, RowData, RowTerm};
+use core::big_data::{BigData, RowData, RowTerm};
 
 const MAX: u128 = 10000;
 fn gen_data() -> BigData {
