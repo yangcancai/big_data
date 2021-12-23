@@ -21,9 +21,6 @@ fn main() {
         "macos" | "ios" => "libbig_data.dylib",
         _ => "libbig_data.so",
     };
-    println!("profile: {}", profile);
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=Cargo.lock");
     // Location of libmatcher
     // let mut libpath = Path::new(&here).join("target");
     if host_triple != target_triple {
