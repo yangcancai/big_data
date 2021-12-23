@@ -1,0 +1,2 @@
+[workspace]
+members = ["crates/big_data","crates/big_data/redis_api"]

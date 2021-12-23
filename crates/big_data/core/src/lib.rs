@@ -1,3 +1,4 @@
 extern crate ordermap;
-pub mod big_data;
 mod atoms;
+pub mod big_data;
+pub mod term;

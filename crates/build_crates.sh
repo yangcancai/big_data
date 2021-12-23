@@ -1,10 +1,14 @@
 #!/bin/bash
+export CARGO_TARGET_DIR="$(pwd)/target"
+echo $CARGO_TARGET_DIR
+touch crates/big_data/build.rs
 build(){
     mkdir -p ./priv
     cargo build --manifest-path=crates/big_data/Cargo.toml --release
     sh -c "cp $(cat crates/big_data/libpath) ./priv/libbig_data.so "
 }
 test(){
+    cargo build --manifest-path=crates/big_data/Cargo.toml
     cargo test --manifest-path=crates/big_data/Cargo.toml 
 }
 clippy(){

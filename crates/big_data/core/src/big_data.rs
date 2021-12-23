@@ -1,32 +1,30 @@
-use std::collections::{BTreeMap, HashMap};
-use std::ops::Add;
-use std::ops::AddAssign;
-use std::ops::Bound::Included;
+use super::atoms;
 use ordermap::set::OrderSet;
-use std::io::Write;
 use rustler::error::Error;
 use rustler::types::atom::Atom;
 use rustler::types::binary::OwnedBinary;
+use rustler::types::tuple::get_tuple;
+use rustler::types::tuple::make_tuple;
 use rustler::Decoder;
 use rustler::Encoder;
 use rustler::Env;
 use rustler::NifResult;
 use rustler::Term;
-use rustler::types::tuple::get_tuple;
-use rustler::types::tuple::make_tuple;
-use super::atoms;
-
-
+use std::collections::{BTreeMap, HashMap};
+use std::io::Write;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Bound::Included;
 
 pub struct Time(pub u128);
 #[derive(Debug, Clone)]
 pub struct RowData {
     // id
-    row_id: String,
+    pub row_id: String,
     // RowTerm
-    term: RowTerm,
+    pub term: RowTerm,
     // timestamp
-    time: u128,
+    pub time: u128,
 }
 #[derive(Debug, Clone)]
 pub struct BigData {
@@ -870,4 +868,3 @@ pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
         None
     }
 }
-

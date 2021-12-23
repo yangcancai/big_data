@@ -3,6 +3,12 @@ use std::{env, fs::File, io::Write, path::Path};
 fn main() {
     // Directory contain this build-script
     let here = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let mut libpath  = if let Ok(here) = env::var("CARGO_TARGET_DIR"){
+        Path::new(&here).to_path_buf()
+    }else{
+        Path::new(&here).join("target")
+    };
+    // let here = env::var("CARGO_HOME").unwrap();
     // Host triple (arch of machine doing to build, not necessarily the arch we're building for)
     let host_triple = env::var("HOST").unwrap();
     // Target triple (arch we're building for, not necessarily the arch we're building on)
@@ -15,9 +21,11 @@ fn main() {
         "macos" | "ios" => "libbig_data.dylib",
         _ => "libbig_data.so",
     };
-
+    println!("profile: {}", profile);
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=Cargo.lock");
     // Location of libmatcher
-    let mut libpath = Path::new(&here).join("target");
+    // let mut libpath = Path::new(&here).join("target");
     if host_triple != target_triple {
         libpath = libpath.join(&target_triple);
     }

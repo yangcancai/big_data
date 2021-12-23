@@ -12,3 +12,8 @@ name = "core"
 [dependencies]
 ordermap = "0.3.5"
 rustler = "0.22.2"
+erlang-term = "0.1.1" 
+nom = "*"
+anyhow = "*"
+num-bigint = "*"
+num-traits = "*"

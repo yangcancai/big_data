@@ -1,3 +1,5 @@
 #[macro_use]
 extern crate redis_module;
-mod hello;
+extern crate core;
+// mod hello;
+pub mod api;
