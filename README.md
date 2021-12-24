@@ -268,3 +268,7 @@ test insert ... bench:       1,160 ns/iter (+/- 141)
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured
 ```
+
+## Reference
+* [redismodule-rs](https://github.com/RedisLabsModules/redismodule-rs.git)
+* [rabbitmq/ra](https://github.com/rabbitmq/ra.git)
