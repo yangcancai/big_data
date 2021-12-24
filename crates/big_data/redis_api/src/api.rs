@@ -22,11 +22,15 @@
 // Created : 2021-12-22T01:17:07+00:00
 //-------------------------------------------------------------------
 
+use core::big_data::RowTerm;
+use core::big_data::RowData;
 use core::big_data::BigData;
 use redis_module::native_types::RedisType;
 use redis_module::RedisError;
 use redis_module::{raw, Context, NextArg, RedisResult, RedisString};
 use std::os::raw::c_void;
+use core::traits::ToBytes;
+use core::traits::FromBytes;
 static MY_REDIS_TYPE: RedisType = RedisType::new(
     "big_data1",
     0,
@@ -62,7 +66,7 @@ fn big_data_update_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult{
     let row_key = args.next_str()?; 
     let elem_specs =  args.next_arg()?;
     let elem_specs: &[u8] = elem_specs.as_slice();
-    let rowterm = core::term::binary_to_rowterm(elem_specs);
+    let rowterm  = RowTerm::from_bytes(elem_specs);
     match rowterm{
         Ok(rowterm) =>{
             let key = ctx.open_key_writable(&key);
@@ -90,7 +94,7 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let two = args.next_arg()?;
     args.done()?;
     let binary: &[u8] = two.as_slice();
-    let decoded = core::term::binary_to_term(binary);
+    let decoded = Vec::<RowData>::from_bytes(binary);
     match decoded {
         Ok(row_data) => {
             ctx.log_debug(
@@ -118,6 +122,32 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         Err(e) => Err(RedisError::String(format!("ERR {:?}", e))),
     }
 }
+fn big_data_lookup_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult{
+    let mut args = args.into_iter().skip(1);
+    let key = args.next_arg()?;
+    let row_key = args.next_str()?;
+    let elem_specs = args.next_arg()?;
+    let elem_specs = elem_specs.as_slice();
+    args.done()?; 
+    let rowterm = RowTerm::from_bytes(elem_specs);
+    match rowterm{
+        Ok(rowterm) =>{
+         let key = ctx.open_key(&key);
+         match key.get_value::<BigData>(&MY_REDIS_TYPE)?{
+            Some(value) =>{
+            let row_list = value.lookup_elem(row_key, rowterm);
+            match row_list.to_bytes() {
+                Ok(term) => Ok(term.into()),
+                Err(e) => Err(RedisError::String(format!("ERR {:?}", e))),
+            }
+        }
+        None => 
+                Err(RedisError::String("ERR: Not Found".into()))
+    }
+    }
+    Err(e) => Err(RedisError::String(format!("ERR {:?}", e))),
+    }
+}
 fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
@@ -126,9 +156,7 @@ fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
             let r = value.to_list();
-            let r: Vec<core::big_data::RowData> = r.iter().map(|x| (*x).clone()).collect();
-            let term = core::term::list_to_binary(r.as_slice());
-            match term {
+            match r.to_bytes(){
                 Ok(term) => Ok(term.into()),
                 Err(e) => Err(RedisError::String(format!("error:{:?}", e))),
             }
@@ -143,12 +171,11 @@ fn big_data_get_row(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let row_key = args.next_str()?;
     let key = ctx.open_key(&key);
     args.done()?;
-
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
             if let Some(r) = value.get(row_key) {
-                let term = core::term::list_to_binary(&[r.clone()]);
-                match term {
+                let term = &[r.clone()];
+                match term.to_bytes() {
                     Ok(term) => Ok(term.into()),
                     Err(e) => Err(RedisError::String(format!("error:{:?}", e))),
                 }
@@ -161,8 +188,8 @@ fn big_data_get_row(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 }
 
 fn empty_list() -> RedisResult {
-    let r = core::term::list_to_binary(&[]);
-    Ok(r.unwrap().into())
+    let r: &[RowData] = &[];
+    Ok(r.to_bytes().unwrap().into())
 }
 //////////////////////////////////////////////////////
 
@@ -177,5 +204,6 @@ redis_module! {
         ["big_data.update_elem", big_data_update_elem, "write", 1, 1, 1],
         ["big_data.get_row", big_data_get_row, "readonly", 1, 1, 1],
         ["big_data.get", big_data_get, "readonly", 1, 1, 1],
+        ["big_data.lookup_elem", big_data_lookup_elem, "readonly", 1, 1, 1],
     ],
 }
