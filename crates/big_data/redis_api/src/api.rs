@@ -56,7 +56,34 @@ static MY_REDIS_TYPE: RedisType = RedisType::new(
 unsafe extern "C" fn free(value: *mut c_void) {
     Box::from_raw(value as *mut BigData);
 }
-
+fn big_data_update_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult{
+    let mut args = args.into_iter().skip(1);
+    let key = args.next_arg()?;
+    let row_key = args.next_str()?; 
+    let elem_specs =  args.next_arg()?;
+    let elem_specs: &[u8] = elem_specs.as_slice();
+    let rowterm = core::term::binary_to_rowterm(elem_specs);
+    match rowterm{
+        Ok(rowterm) =>{
+            let key = ctx.open_key_writable(&key);
+            match key.get_value::<BigData>(&MY_REDIS_TYPE)?{
+                Some(value) =>{
+                    match core::term::list_atom_to_raw(value.update_elem(row_key, rowterm)){
+                        Ok(list) =>{
+                            Ok(list.to_bytes().into())
+                        }
+                        _=>
+                           Err(RedisError::String("ERR: encoded resp error".into()))
+                    }
+                }
+                None =>{
+                Err(RedisError::String("ERR: Not Found".into()))
+             }
+            }
+        },
+        Err(e) => Err(RedisError::String(format!("ERR {:?}", e)))
+    } 
+}
 fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
@@ -147,6 +174,7 @@ redis_module! {
     ],
     commands: [
         ["big_data.set", big_data_set, "write", 1, 1, 1],
+        ["big_data.update_elem", big_data_update_elem, "write", 1, 1, 1],
         ["big_data.get_row", big_data_get_row, "readonly", 1, 1, 1],
         ["big_data.get", big_data_get, "readonly", 1, 1, 1],
     ],

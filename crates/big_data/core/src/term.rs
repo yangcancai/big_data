@@ -12,6 +12,13 @@ pub fn binary_to_term(binary: &[u8]) -> Result<Vec<RowData>> {
         Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
     }
 }
+pub fn binary_to_rowterm(binary: &[u8]) -> Result<RowTerm>{
+    let decoded = RawTerm::from_bytes(binary);
+    match decoded {
+        Ok(term) => to_row_term(term),
+        Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
+    }
+}
 pub fn list_to_binary(list: &[RowData]) -> Result<Vec<u8>> {
     let mut rs = vec![];
     for row in list.iter() {
@@ -81,6 +88,13 @@ pub fn rowdata_to_raw(row: &RowData) -> Result<RawTerm> {
         time,
     ]))
 }
+pub fn list_atom_to_raw(list: Vec<bool>) -> Result<RawTerm>{
+    let mut rs = vec![];
+    for row in list{
+        rs.push(RawTerm::Atom(row.to_string()));
+    }
+    Ok(RawTerm::List(rs))
+}
 pub fn term_to_binary(row: &RowData) -> Result<Vec<u8>> {
     Ok(rowdata_to_raw(row)?.to_bytes())
 }
@@ -90,9 +104,9 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
         | RawTerm::AtomDeprecated(a)
         | RawTerm::SmallAtom(a)
         | RawTerm::SmallAtomDeprecated(a) => Ok(RowTerm::Atom(a)),
-        // RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => {
-        //     return Ok(RowTerm::Integer(i.to_i64().unwrap()));
-        // }
+         RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => {
+             Ok(RowTerm::Integer(i.to_i64().unwrap()))
+         }
         RawTerm::SmallInt(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
         RawTerm::Int(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
         RawTerm::SmallTuple(tuple) | RawTerm::LargeTuple(tuple) => {
