@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate bencher;
 extern crate big_data;
-extern crate rand;
 extern crate core;
+extern crate rand;
 use bencher::Bencher;
 use core::big_data::{BigData, RowData, RowTerm};
 

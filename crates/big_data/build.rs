@@ -3,9 +3,9 @@ use std::{env, fs::File, io::Write, path::Path};
 fn main() {
     // Directory contain this build-script
     let here = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let mut libpath  = if let Ok(here) = env::var("CARGO_TARGET_DIR"){
+    let mut libpath = if let Ok(here) = env::var("CARGO_TARGET_DIR") {
         Path::new(&here).to_path_buf()
-    }else{
+    } else {
         Path::new(&here).join("target")
     };
     // let here = env::var("CARGO_HOME").unwrap();

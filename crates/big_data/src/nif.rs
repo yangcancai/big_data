@@ -1,16 +1,16 @@
+use rustler::resource::ResourceArc;
+use rustler::types::binary::OwnedBinary;
+use rustler::types::tuple::make_tuple;
+use rustler::Binary;
+use rustler::Encoder;
+use rustler::Env;
+use rustler::NifResult;
+use rustler::Term;
 use std::{
     borrow::Cow,
     collections::HashMap,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
-use rustler::types::binary::OwnedBinary;
-use rustler::Encoder;
-use rustler::Env;
-use rustler::NifResult;
-use rustler::Term;
-use rustler::resource::ResourceArc;
-use rustler::types::tuple::make_tuple;
-use rustler::Binary;
 
 use atoms;
 use atoms::ok;

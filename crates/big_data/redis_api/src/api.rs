@@ -22,9 +22,9 @@
 // Created : 2021-12-22T01:17:07+00:00
 //-------------------------------------------------------------------
 
-use redis_module::RedisError;
 use core::big_data::BigData;
 use redis_module::native_types::RedisType;
+use redis_module::RedisError;
 use redis_module::{raw, Context, NextArg, RedisResult, RedisString};
 use std::os::raw::c_void;
 static MY_REDIS_TYPE: RedisType = RedisType::new(
@@ -63,27 +63,32 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let two = args.next_arg()?;
     args.done()?;
     let binary: &[u8] = two.as_slice();
-    let decoded = core::term::binary_to_term(&binary);
-    if decoded.is_ok(){
-        let row_data = decoded.unwrap();
-        ctx.log_debug(format!("key: {}, binary: {:?}, row_data: {:?}", key, binary, row_data).as_str());
+    let decoded = core::term::binary_to_term(binary);
+    match decoded {
+        Ok(row_data) => {
+            ctx.log_debug(
+                format!(
+                    "key: {}, binary: {:?}, row_data: {:?}",
+                    key, binary, row_data
+                )
+                .as_str(),
+            );
 
-        let key = ctx.open_key_writable(&key);
+            let key = ctx.open_key_writable(&key);
 
-        match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
-            Some(value) => {
-                value.insert(row_data);
+            match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
+                Some(value) => {
+                    value.insert_list(row_data);
+                }
+                None => {
+                    let mut big_data = BigData::new();
+                    big_data.insert_list(row_data);
+                    key.set_value(&MY_REDIS_TYPE, big_data)?;
+                }
             }
-            None => {
-                let mut big_data = BigData::new();
-                big_data.insert(row_data); 
-                key.set_value(&MY_REDIS_TYPE, big_data)?;
-            }
+            Ok("OK".into())
         }
-        Ok("OK".into())
-    } else {
-        let e = decoded.unwrap_err();
-        Err(RedisError::String(format!("ERR {:?}", e)))
+        Err(e) => Err(RedisError::String(format!("ERR {:?}", e))),
     }
 }
 fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
@@ -93,19 +98,15 @@ fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     args.done()?;
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
-                let r = value.to_list();
-                let r: Vec<core::big_data::RowData> = r.iter().map(|x|(*x).clone()).collect();
-                let term = core::term::list_to_binary(r.as_slice());
-                if term.is_ok(){
-                    Ok(term.unwrap().into())
-                }else{
-                    let e = term.unwrap_err();
-                    return Err(RedisError::String(format!("error:{:?}", e)))
-                }
-        },
-        None => {
-            empty_list()
+            let r = value.to_list();
+            let r: Vec<core::big_data::RowData> = r.iter().map(|x| (*x).clone()).collect();
+            let term = core::term::list_to_binary(r.as_slice());
+            match term {
+                Ok(term) => Ok(term.into()),
+                Err(e) => Err(RedisError::String(format!("error:{:?}", e))),
+            }
         }
+        None => empty_list(),
     }
 }
 
@@ -120,23 +121,21 @@ fn big_data_get_row(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         Some(value) => {
             if let Some(r) = value.get(row_key) {
                 let term = core::term::list_to_binary(&[r.clone()]);
-                if term.is_ok(){
-                    Ok(term.unwrap().into())
-                }else{
-                let e = term.unwrap_err();
-                    Err(RedisError::String(format!("error:{:?}", e)))
+                match term {
+                    Ok(term) => Ok(term.into()),
+                    Err(e) => Err(RedisError::String(format!("error:{:?}", e))),
                 }
             } else {
                 empty_list()
             }
         }
-        None => empty_list()
+        None => empty_list(),
     }
 }
 
-fn empty_list() -> RedisResult{
-   let r = core::term::list_to_binary(&vec![]);
-   Ok(r.unwrap().into())
+fn empty_list() -> RedisResult {
+    let r = core::term::list_to_binary(&[]);
+    Ok(r.unwrap().into())
 }
 //////////////////////////////////////////////////////
 

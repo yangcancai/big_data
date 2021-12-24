@@ -124,6 +124,13 @@ impl BigData {
         }
         rs
     }
+    pub fn insert_list(&mut self, list: Vec<RowData>) -> Option<RowData> {
+        let mut rs = None;
+        for row in list {
+            rs = self.insert(row);
+        }
+        rs
+    }
     /// Clear all RowData and all time_index
     ///
     /// # Examples
@@ -737,7 +744,7 @@ impl Encoder for RowTerm {
             RowTerm::Bitstring(inner) => inner.encode(env),
             RowTerm::Bin(inner) => {
                 let mut binary = OwnedBinary::new(inner.len()).unwrap();
-                binary.as_mut_slice().write_all(&inner).unwrap();
+                binary.as_mut_slice().write_all(inner).unwrap();
                 binary.release(env).encode(env)
             }
         }
@@ -788,7 +795,7 @@ impl<'a> Decoder<'a> for RowData {
                             return Ok(row_data);
                         }
                         RowTerm::Bitstring(row_id) => {
-                            let row_data = RowData::new(&row_id, tuple[2].clone(), time as u128);
+                            let row_data = RowData::new(row_id, tuple[2].clone(), time as u128);
                             return Ok(row_data);
                         }
                         _ => {}
