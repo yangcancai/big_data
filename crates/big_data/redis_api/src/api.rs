@@ -61,6 +61,7 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
     let two = args.next_arg()?;
+    args.done()?;
     let binary: &[u8] = two.as_slice();
     let decoded = core::term::binary_to_term(&binary);
     if decoded.is_ok(){
@@ -85,17 +86,40 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         Err(RedisError::String(format!("ERR {:?}", e)))
     }
 }
-
 fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
+    let mut args = args.into_iter().skip(1);
+    let key = args.next_arg()?;
+    let key = ctx.open_key(&key);
+    args.done()?;
+    match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
+        Some(value) => {
+                let r = value.to_list();
+                let r: Vec<core::big_data::RowData> = r.iter().map(|x|(*x).clone()).collect();
+                let term = core::term::list_to_binary(r.as_slice());
+                if term.is_ok(){
+                    Ok(term.unwrap().into())
+                }else{
+                    let e = term.unwrap_err();
+                    return Err(RedisError::String(format!("error:{:?}", e)))
+                }
+        },
+        None => {
+            empty_list()
+        }
+    }
+}
+
+fn big_data_get_row(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
     let row_key = args.next_str()?;
     let key = ctx.open_key(&key);
+    args.done()?;
 
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
             if let Some(r) = value.get(row_key) {
-                let term = core::term::term_to_binary(r.clone());
+                let term = core::term::list_to_binary(&[r.clone()]);
                 if term.is_ok(){
                     Ok(term.unwrap().into())
                 }else{
@@ -103,13 +127,17 @@ fn big_data_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                     Err(RedisError::String(format!("error:{:?}", e)))
                 }
             } else {
-                Ok(().into())
+                empty_list()
             }
         }
-        None => Ok(().into())
+        None => empty_list()
     }
 }
 
+fn empty_list() -> RedisResult{
+   let r = core::term::list_to_binary(&vec![]);
+   Ok(r.unwrap().into())
+}
 //////////////////////////////////////////////////////
 
 redis_module! {
@@ -120,6 +148,7 @@ redis_module! {
     ],
     commands: [
         ["big_data.set", big_data_set, "write", 1, 1, 1],
+        ["big_data.get_row", big_data_get_row, "readonly", 1, 1, 1],
         ["big_data.get", big_data_get, "readonly", 1, 1, 1],
     ],
 }

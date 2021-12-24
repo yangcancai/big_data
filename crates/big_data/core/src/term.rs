@@ -28,11 +28,21 @@ pub fn binary_to_term(binary: &[u8]) -> Result<RowData> {
     }
     Err(Error::msg("RowData tuple invalid"))
 }
-pub fn term_to_binary(row: RowData) -> Result<Vec<u8>> {
+pub fn list_to_binary(list: &[RowData]) -> Result<Vec<u8>>{
+    let mut rs = vec![];
+    for row in list.iter(){
+        rs.push(rowdata_to_raw(row)?);
+    }
+    Ok(RawTerm::List(rs).to_bytes())
+}
+pub fn rowdata_to_raw(row: &RowData) -> Result<RawTerm> {
     let row_id = RawTerm::Binary(row.row_id.as_bytes().to_vec());
-    let term = to_raw_term(row.term)?;
+    let term = to_raw_term(row.term.clone())?;
     let time = RawTerm::SmallBigInt(row.time.into());
-    Ok(RawTerm::SmallTuple(vec![to_raw_term(RowTerm::Atom("row_data".into()))?, row_id, term, time]).to_bytes())
+    Ok(RawTerm::SmallTuple(vec![to_raw_term(RowTerm::Atom("row_data".into()))?, row_id, term, time]))
+}
+pub fn term_to_binary(row: &RowData) -> Result<Vec<u8>> {
+    Ok(rowdata_to_raw(row)?.to_bytes())
 }
 fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
     match raw {
