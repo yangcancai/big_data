@@ -1,7 +1,7 @@
-use core::traits::ToBytes;
-use core::traits::FromBytes;
 use core::big_data::RowData;
 use core::big_data::RowTerm;
+use core::traits::FromBytes;
+use core::traits::ToBytes;
 #[test]
 fn term() {
     let bin = &[

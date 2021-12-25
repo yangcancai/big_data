@@ -1,67 +1,83 @@
-use crate::traits::FromBytes;
 use crate::big_data::RowData;
 use crate::big_data::RowTerm;
+use crate::traits::FromBytes;
+use crate::traits::ToBytes;
 use anyhow::Error;
 use anyhow::Result;
 use erlang_term::RawTerm;
 use num_traits::ToPrimitive;
-use crate::traits::ToBytes;
-impl ToBytes for &RowTerm{
-   fn to_bytes(self) -> Result<Vec<u8>>{
-    let raw = to_raw_term((*self).clone())?;
-    Ok(raw.to_bytes())
-   }
+pub enum ErlRes<T, E> {
+    Ok,
+    OkTuple(T),
+    NotFound,
+    Err(E),
 }
-impl ToBytes for RowTerm{
-    fn to_bytes(self) -> Result<Vec<u8>>{
+impl ToBytes for &RowTerm {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        let raw = to_raw_term((*self).clone())?;
+        Ok(raw.to_bytes())
+    }
+}
+impl ToBytes for RowTerm {
+    fn to_bytes(self) -> Result<Vec<u8>> {
         Ok(to_raw_term(self)?.to_bytes())
     }
 }
-impl ToBytes for Vec<&RowTerm>{
-    fn to_bytes(self) -> Result<Vec<u8>>{
+impl ToBytes for Vec<&RowTerm> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
-        for row in self{
+        for row in self {
             let raw = to_raw_term((*row).clone())?;
             rs.push(raw);
         }
         Ok(RawTerm::List(rs).to_bytes())
     }
 }
-impl ToBytes for &[RowData]{
-    fn to_bytes(self) -> Result<Vec<u8>>{
-    let mut rs = vec![];
-    for row in self.iter() {
-        rs.push(rowdata_to_raw(row)?);
-    }
-    Ok(RawTerm::List(rs).to_bytes())
+impl ToBytes for &[RowData] {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        let mut rs = vec![];
+        for row in self.iter() {
+            rs.push(rowdata_to_raw(row)?);
+        }
+        Ok(RawTerm::List(rs).to_bytes())
     }
 }
-impl ToBytes for Vec<&RowData>{
-    fn to_bytes(self) -> Result<Vec<u8>>{
+impl ToBytes for ErlRes<RowTerm, RowTerm> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        match self {
+            ErlRes::Ok => Ok(to_raw_term(RowTerm::Atom("ok".into()))?.to_bytes()),
+            ErlRes::OkTuple(value) => Ok(ok(value)?.to_bytes()),
+            ErlRes::NotFound => Ok(error("not_found".into())?.to_bytes()),
+            ErlRes::Err(e) => e.to_bytes(),
+        }
+    }
+}
+impl ToBytes for Vec<&RowData> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
-        for row in self{
+        for row in self {
             rs.push(rowdata_to_raw(row)?)
         }
         Ok(RawTerm::List(rs).to_bytes())
     }
 }
-impl ToBytes for &RowData{
-    fn to_bytes(self) -> Result<Vec<u8>>{
-    Ok(rowdata_to_raw(self)?.to_bytes())
+impl ToBytes for &RowData {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        Ok(rowdata_to_raw(self)?.to_bytes())
     }
 }
 impl ToBytes for &[RawTerm] {
-    fn to_bytes(self) -> Result<Vec<u8>>{
+    fn to_bytes(self) -> Result<Vec<u8>> {
         Ok(RawTerm::List(self.to_vec()).to_bytes())
     }
 }
 impl ToBytes for Vec<RawTerm> {
-    fn to_bytes(self) -> Result<Vec<u8>>{
+    fn to_bytes(self) -> Result<Vec<u8>> {
         Ok(RawTerm::List(self.to_vec()).to_bytes())
     }
 }
 impl ToBytes for Vec<&RawTerm> {
-    fn to_bytes(self) -> Result<Vec<u8>>{
+    fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
         for row in self {
             rs.push((*row).clone());
@@ -69,23 +85,60 @@ impl ToBytes for Vec<&RawTerm> {
         Ok(RawTerm::List(rs).to_bytes())
     }
 }
-impl FromBytes for Vec<RowData>{
-    fn from_bytes(binary: &[u8]) -> Result<Self>{
-    let decoded = RawTerm::from_bytes(binary);
-    match decoded {
-        Ok(term) => raw_to_rowdata(term),
-        Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
-    }   
+impl ToBytes for Vec<bool> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        match list_atom_to_raw(self) {
+            Ok(raw_term) => Ok(raw_term.to_bytes()),
+            Err(e) => Err(Error::msg(format!("Vec<bool>: to_bytes crash: {}", e))),
+        }
     }
 }
-impl FromBytes for RowTerm{
-    fn from_bytes(binary: &[u8]) -> Result<RowTerm>{
-    let decoded = RawTerm::from_bytes(binary);
-    match decoded {
-        Ok(term) => to_row_term(term),
-        Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
+impl ToBytes for Vec<&String> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        let mut rs = vec![];
+        for row in self {
+            rs.push(to_raw_term(RowTerm::Atom((*row).clone()))?);
+        }
+        Ok(RawTerm::List(rs).to_bytes())
     }
+}
+impl ToBytes for Option<u128> {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        match self {
+            Some(value) => Ok(to_raw_term(RowTerm::Integer(value as i64))?.to_bytes()),
+            None => ErlRes::NotFound.to_bytes(),
+        }
     }
+}
+impl FromBytes for Vec<RowData> {
+    fn from_bytes(binary: &[u8]) -> Result<Self> {
+        let decoded = RawTerm::from_bytes(binary);
+        match decoded {
+            Ok(term) => raw_to_rowdata(term),
+            Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
+        }
+    }
+}
+impl FromBytes for RowTerm {
+    fn from_bytes(binary: &[u8]) -> Result<RowTerm> {
+        let decoded = RawTerm::from_bytes(binary);
+        match decoded {
+            Ok(term) => to_row_term(term),
+            Err(e) => Err(Error::msg(format!("RawTerm::from_bytes crash, {}", e))),
+        }
+    }
+}
+pub fn ok(row: RowTerm) -> Result<RawTerm> {
+    to_raw_term(RowTerm::Tuple(vec![
+        RowTerm::Atom("ok".into()),
+        row,
+    ]))
+}
+pub fn error(atom: String) -> Result<RawTerm> {
+    to_raw_term(RowTerm::Tuple(vec![
+        RowTerm::Atom("error".into()),
+        RowTerm::Atom(atom),
+    ]))
 }
 pub fn parse_time(time: &RawTerm) -> Result<u128> {
     match time {
@@ -149,9 +202,9 @@ pub fn rowdata_to_raw(row: &RowData) -> Result<RawTerm> {
         time,
     ]))
 }
-pub fn list_atom_to_raw(list: Vec<bool>) -> Result<RawTerm>{
+pub fn list_atom_to_raw(list: Vec<bool>) -> Result<RawTerm> {
     let mut rs = vec![];
-    for row in list{
+    for row in list {
         rs.push(RawTerm::Atom(row.to_string()));
     }
     Ok(RawTerm::List(rs))
@@ -162,9 +215,9 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
         | RawTerm::AtomDeprecated(a)
         | RawTerm::SmallAtom(a)
         | RawTerm::SmallAtomDeprecated(a) => Ok(RowTerm::Atom(a)),
-         RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => {
-             Ok(RowTerm::Integer(i.to_i64().unwrap()))
-         }
+        RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => {
+            Ok(RowTerm::Integer(i.to_i64().unwrap()))
+        }
         RawTerm::SmallInt(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
         RawTerm::Int(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
         RawTerm::SmallTuple(tuple) | RawTerm::LargeTuple(tuple) => {

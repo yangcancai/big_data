@@ -12,3 +12,4 @@ crate-type=["rlib","cdylib"]
 [dependencies]
 redis-module = { git = "https://github.com/RedisLabsModules/redismodule-rs.git", branch = "master", features = ["experimental-api"]}
 core = {path = "../core"}
+anyhow = "*"

@@ -534,6 +534,7 @@ dependencies = [
 name = "redis_api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "core",
  "redis-module",
 ]
