@@ -30,7 +30,6 @@ use core::term::ErlRes;
 use core::traits::FromBytes;
 use core::traits::ToBytes;
 use redis_module::native_types::RedisType;
-use redis_module::RedisError;
 use redis_module::{raw, Context, NextArg, RedisResult, RedisString};
 use std::os::raw::c_void;
 static MY_REDIS_TYPE: RedisType = RedisType::new(
@@ -285,7 +284,7 @@ fn empty_list() -> RedisResult {
     Ok(r.to_bytes().unwrap().into())
 }
 fn error(str: String) -> RedisResult {
-    Err(RedisError::String(str))
+    to_redis_res(ErlRes::ErrString(str).to_bytes())
 }
 fn to_redis_res_ok() -> RedisResult {
     to_redis_res(ErlRes::Ok.to_bytes())

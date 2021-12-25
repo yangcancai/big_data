@@ -11,6 +11,7 @@ pub enum ErlRes<T, E> {
     OkTuple(T),
     NotFound,
     Err(E),
+    ErrString(String),
 }
 impl ToBytes for &RowTerm {
     fn to_bytes(self) -> Result<Vec<u8>> {
@@ -48,7 +49,14 @@ impl ToBytes for ErlRes<RowTerm, RowTerm> {
             ErlRes::Ok => Ok(to_raw_term(RowTerm::Atom("ok".into()))?.to_bytes()),
             ErlRes::OkTuple(value) => Ok(ok(value)?.to_bytes()),
             ErlRes::NotFound => Ok(error("not_found".into())?.to_bytes()),
-            ErlRes::Err(e) => e.to_bytes(),
+            ErlRes::Err(e) => {
+                Ok(to_raw_term(RowTerm::Tuple(vec![RowTerm::Atom("error".into()), e]))?.to_bytes())
+            }
+            ErlRes::ErrString(e) => Ok(to_raw_term(RowTerm::Tuple(vec![
+                RowTerm::Atom("error".into()),
+                RowTerm::Atom(e),
+            ]))?
+            .to_bytes()),
         }
     }
 }
@@ -129,10 +137,7 @@ impl FromBytes for RowTerm {
     }
 }
 pub fn ok(row: RowTerm) -> Result<RawTerm> {
-    to_raw_term(RowTerm::Tuple(vec![
-        RowTerm::Atom("ok".into()),
-        row,
-    ]))
+    to_raw_term(RowTerm::Tuple(vec![RowTerm::Atom("ok".into()), row]))
 }
 pub fn error(atom: String) -> Result<RawTerm> {
     to_raw_term(RowTerm::Tuple(vec![
