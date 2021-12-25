@@ -76,7 +76,7 @@ fn big_data_update_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             let key = ctx.open_key_writable(&key);
             match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
                 Some(value) => to_redis_res(value.update_elem(row_key, rowterm).to_bytes()),
-                None => error("ERR: Not Found".into()),
+                None => to_redis_res(ErlRes::NotFound.to_bytes()),
             }
         }
         Err(e) => error(format!("ERR {:?}", e)),
@@ -188,7 +188,7 @@ fn big_data_lookup_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                     let row_list = value.lookup_elem(row_key, rowterm);
                     to_redis_res(row_list.to_bytes())
                 }
-                None => error("ERR: Not Found".into()),
+                None => to_redis_res(ErlRes::NotFound.to_bytes()),
             }
         }
         Err(e) => error(format!("ERR {:?}", e)),
