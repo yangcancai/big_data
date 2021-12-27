@@ -433,7 +433,7 @@ insert_binary(_) ->
     {ok, Ref} = big_data_nif:new(),
     BigKey = <<"a">>,
     [begin
-         ok = big_data:clear(Ref),
+         ok = big_data_local:clear(Ref),
          Term = crypto:strong_rand_bytes(100),
          RowData =
              #row_data{row_id = <<"1">>,

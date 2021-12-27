@@ -362,7 +362,7 @@ process_all_action(Tid) ->
 process_all_action(_, []) ->
     ok;
 process_all_action(Ref, [#bd_wal{action = Action, args = Args} | Rest]) ->
-    apply(big_data, Action, [Ref] ++ Args),
+    apply(big_data:backend(), Action, [Ref] ++ Args),
     process_all_action(Ref, Rest).
 
 delete_wal_buffer(Tid, CheckpointSeq, NewSeq) ->

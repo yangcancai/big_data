@@ -6,7 +6,8 @@
   {applications,
    [kernel,
     stdlib,
-    observer_cli
+    observer_cli,
+    cool_tools
    ]},
   {env,[]},
   {modules, []},

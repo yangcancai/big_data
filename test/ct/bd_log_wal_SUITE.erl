@@ -37,6 +37,8 @@ all() ->
 
 init_per_suite(Config) ->
     ok = application:load(?APP),
+    application:set_env(big_data, big_data_backend, local),
+    big_data:start(),
     new_meck(),
     Dir = "/tmp/big_data/test",
     [{dir, Dir} | Config].
@@ -131,10 +133,11 @@ recover(Config) ->
     ?assertEqual([], ets:tab2list(S#bd_log_wal_state.wal_buffer_tid)),
     ?assertEqual(1, bd_checkpoint:lookup_checkpoint_seq()),
     ?assertEqual(filename:join(Dir, "2_00000002.wal"), S#bd_log_wal_state.file_name),
+    M = mod(),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}}],
-                 big_data:get(BigData, <<"player">>)),
+                 M:get(BigData, <<"player">>)),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}}],
@@ -168,13 +171,14 @@ write(Config) ->
                             term = {a, 1}}],
                  bd_backend_store:handle_get(<<"player">>)),
     BigData = persistent_term:get(big_data),
+    M = mod(),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}},
                   #row_data{row_id = <<"2">>,
                             time = 1,
                             term = {a, 1}}],
-                 big_data:get(BigData, <<"player">>)),
+                 M:get(BigData, <<"player">>)),
 
     UpdateElemWal = #bd_wal{action = update_elem, args = [<<"player">>, <<"1">>, [{1, 2}]]},
     UpdateCounterWal =
@@ -182,13 +186,14 @@ write(Config) ->
 
     [true] = big_data:command(UpdateElemWal),
     [true] = big_data:command(UpdateCounterWal),
+    M = mod(),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 2}},
                   #row_data{row_id = <<"2">>,
                             time = 1,
                             term = {a, 3}}],
-                 big_data:get(BigData, <<"player">>)),
+                 M:get(BigData, <<"player">>)),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 1}},
@@ -206,10 +211,11 @@ write(Config) ->
                  bd_backend_store:handle_get(<<"player">>)),
     RemoveRowWal = #bd_wal{action = remove_row, args = [<<"player">>, <<"1">>]},
     ok = big_data:command(RemoveRowWal),
+    M = mod(),
     ?assertEqual([#row_data{row_id = <<"2">>,
                             time = 1,
                             term = {a, 3}}],
-                 big_data:get(BigData, <<"player">>)),
+                 M:get(BigData, <<"player">>)),
     ?assertEqual([#row_data{row_id = <<"1">>,
                             time = 1,
                             term = {a, 2}},
@@ -226,6 +232,7 @@ write(Config) ->
     ok.
 
 checkpoint(Config) ->
+    M = mod(),
     {ok, _} = bd_log_wal:start_link(#{dir => ?config(dir, Config)}),
     Wal = #bd_wal{action = insert, args = [<<"player">>, <<"1">>, 1, {a, 1}]},
     ok = big_data:command(Wal),
@@ -251,6 +258,8 @@ checkpoint(Config) ->
                   #row_data{row_id = <<"2">>,
                             time = 1,
                             term = {a, 1}}],
-                 big_data:get(BigData, <<"player">>)),
+                 M:get(BigData, <<"player">>)),
 
     ok.
+mod() ->
+    big_data:backend().
