@@ -163,23 +163,22 @@ fn is_row_data(term: &RawTerm) -> bool {
     }
 }
 pub fn raw_to_rowdata(term: RawTerm) -> Result<Vec<RowData>> {
-    if let RawTerm::SmallTuple(tuple) = term {
+    if let RawTerm::SmallTuple(tuple) | RawTerm::LargeTuple(tuple) = term {
         if tuple.len() == 4 {
             if is_row_data(&tuple[0]) {
                 if let RawTerm::Binary(row_id) = &tuple[1] {
-                    match &tuple[2] {
-                        RawTerm::SmallTuple(tuple1) | RawTerm::LargeTuple(tuple1) => {
-                            let time = parse_time(&tuple[3])?;
-                            return Ok(vec![RowData::new(
+                    let time = parse_time(&tuple[3])?;
+                    return Ok(vec![RowData::new(
                                 std::str::from_utf8(row_id)?,
-                                to_row_term(RawTerm::SmallTuple(tuple1.clone()))?,
+                                to_row_term(tuple[2].clone())?,
                                 time,
                             )]);
-                        }
-                        _ => {}
+                    }else{
+                return Err(Error::msg(
+                    "RowData tuple invalid: The row_id is not binary",
+                ));
                     }
-                }
-            } else {
+                } else {
                 return Err(Error::msg(
                     "RowData tuple invalid: The record must be row_data",
                 ));
@@ -194,7 +193,7 @@ pub fn raw_to_rowdata(term: RawTerm) -> Result<Vec<RowData>> {
         }
         return Ok(rs);
     }
-    Err(Error::msg("RowData tuple invalid"))
+    Err(Error::msg(format!("RowData tuple invalid {:?}", term)))
 }
 pub fn rowdata_to_raw(row: &RowData) -> Result<RawTerm> {
     let row_id = RawTerm::Binary(row.row_id.as_bytes().to_vec());
