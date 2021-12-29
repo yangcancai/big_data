@@ -79,8 +79,10 @@ bd_store_expect(Mod, Tab) ->
                     handle_get,
                     fun(BigKey) ->
                        case ets:lookup(Tab, BigKey) of
-                           [{_, V}] -> V;
-                           [] -> []
+                           [{_, V}] ->
+                               V;
+                           [] ->
+                               []
                        end
                     end),
     ok =
@@ -261,5 +263,6 @@ checkpoint(Config) ->
                  M:get(BigData, <<"player">>)),
 
     ok.
+
 mod() ->
     big_data:backend().

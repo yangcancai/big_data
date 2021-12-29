@@ -1,17 +1,11 @@
-{application, big_data,
+{application,
+ big_data,
  [{description, "An OTP application"},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, {big_data_app, []}},
-  {applications,
-   [kernel,
-    stdlib,
-    observer_cli,
-    cool_tools
-   ]},
-  {env,[]},
+  {applications, [kernel, stdlib, observer_cli, cool_tools]},
+  {env, []},
   {modules, []},
-
   {licenses, ["Apache 2.0"]},
-  {links, []}
- ]}.
+  {links, []}]}.

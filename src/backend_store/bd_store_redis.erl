@@ -29,7 +29,8 @@
 
 -include("big_data.hrl").
 
--export([start_link/5, handle_get/1, pid/0, handle_put/2, handle_put/1, handle_del/1, cmd/1, term_cmd/2]).
+-export([start_link/5, handle_get/1, pid/0, handle_put/2, handle_put/1, handle_del/1,
+         cmd/1, term_cmd/2]).
 
 start_link(Ip, Port, Pwd, Db, ReconnSleep) ->
     {ok, Pid} = eredis:start_link(Ip, Port, Pwd, Db, ReconnSleep),
@@ -67,8 +68,11 @@ pid() ->
 
 cmd(L) ->
     eredis:q(pid(), L).
+
 term_cmd(P, L) ->
     case eredis:q(P, L) of
+        {ok, <<"OK">>} ->
+            ok;
         {ok, Binary} when is_binary(Binary) ->
             erlang:binary_to_term(Binary);
         V ->

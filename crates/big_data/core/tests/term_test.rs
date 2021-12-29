@@ -1,3 +1,4 @@
+use erlang_term::RawTerm;
 use core::big_data::RowData;
 use core::big_data::RowTerm;
 use core::traits::FromBytes;
@@ -18,7 +19,12 @@ fn term() {
         term[0]
     );
     let b: Vec<u8> = term.to_bytes().unwrap();
-    println!("src = {:?}, \ndecoded = {:?}", bin, b);
     let term1 = Vec::<RowData>::from_bytes(b.as_slice()).unwrap();
-    assert_eq!(term, term1)
+    assert_eq!(term, term1);
+    let b = &[131,107,0,1,0];
+    let r = RawTerm::from_bytes(b);
+    assert_eq!(RawTerm::String(vec![0]), r.unwrap());
+    let r = RowTerm::from_bytes(b);
+    let v: Vec<u8> = vec![0];
+    assert_eq!(RowTerm::Bitstring(String::from_utf8(v).unwrap()), r.unwrap());
 }

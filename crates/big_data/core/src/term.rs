@@ -28,10 +28,10 @@ impl ToBytes for Vec<&RowTerm> {
     fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
         for row in self {
-            let raw = to_raw_term((*row).clone())?;
+            let raw = (*row).clone();
             rs.push(raw);
         }
-        Ok(RawTerm::List(rs).to_bytes())
+        Ok(to_raw_term(RowTerm::Tuple(rs))?.to_bytes())
     }
 }
 impl ToBytes for &[RowData] {
@@ -46,9 +46,9 @@ impl ToBytes for &[RowData] {
 impl ToBytes for ErlRes<RowTerm, RowTerm> {
     fn to_bytes(self) -> Result<Vec<u8>> {
         match self {
-            ErlRes::Ok => Ok(to_raw_term(RowTerm::Atom("ok".into()))?.to_bytes()),
+            ErlRes::Ok => Ok(atom_to_raw_term("ok".into()).to_bytes()),
             ErlRes::OkTuple(value) => Ok(ok(value)?.to_bytes()),
-            ErlRes::NotFound => Ok(error("not_found".into())?.to_bytes()),
+            ErlRes::NotFound => Ok(atom_to_raw_term("notfound".into()).to_bytes()),
             ErlRes::Err(e) => {
                 Ok(to_raw_term(RowTerm::Tuple(vec![RowTerm::Atom("error".into()), e]))?.to_bytes())
             }
@@ -105,7 +105,7 @@ impl ToBytes for Vec<&String> {
     fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
         for row in self {
-            rs.push(to_raw_term(RowTerm::Atom((*row).clone()))?);
+            rs.push(to_raw_term(RowTerm::Bin((*row).clone().as_bytes().to_vec()))?);
         }
         Ok(RawTerm::List(rs).to_bytes())
     }

@@ -158,8 +158,8 @@ handle_info(tick,
     erlang:send_after(1000, self(), tick),
     Now = erlang:system_time(1000),
     LogSeq = bd_counter:get(?BD_COUNTER_ID_SEQ),
-    case LogSeq - CheckpointSeq >= ?BD_WAL_CHECKPOINT_SIZE orelse
-             Now - LastTime >= ?BD_WAL_CHECKPOINT_TIMEOUT
+    case LogSeq - CheckpointSeq >= ?BD_WAL_CHECKPOINT_SIZE
+         orelse Now - LastTime >= ?BD_WAL_CHECKPOINT_TIMEOUT
     of
         true ->
             ?DEBUG("Time to checkpoint id_seq = ~p, checkpoint_seq = ~p", [LogSeq, CheckpointSeq]),
@@ -225,8 +225,10 @@ checkpoint_chunk(Ref, List) ->
     Chunk =
         lists:foldl(fun(BigKey, Acc) ->
                        case big_data_nif:get(Ref, BigKey) of
-                           ?BD_NOTFOUND -> Acc;
-                           RowDataList -> [{BigKey, RowDataList} | Acc]
+                           ?BD_NOTFOUND ->
+                               Acc;
+                           RowDataList ->
+                               [{BigKey, RowDataList} | Acc]
                        end
                     end,
                     [],

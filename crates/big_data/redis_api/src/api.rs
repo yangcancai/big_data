@@ -108,13 +108,13 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let decoded = Vec::<RowData>::from_bytes(binary);
     match decoded {
         Ok(row_data) => {
-            ctx.log_debug(
-                format!(
-                    "key: {}, binary: {:?}, row_data: {:?}",
-                    key, binary, row_data
-                )
-                .as_str(),
-            );
+            // ctx.log_debug(
+                // format!(
+                    // "key: {}, binary: {:?}, row_data: {:?}",
+                    // key, binary, row_data
+                // )
+                // .as_str(),
+            // );
 
             let key = ctx.open_key_writable(&key);
 
@@ -153,7 +153,10 @@ fn big_data_remove(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
     let key = ctx.open_key_writable(&key);
-    key.delete()
+    match key.delete(){
+        Ok(_ok) => to_redis_res_ok(),
+        Err(e) => Err(e)
+    }
 }
 fn big_data_remove_row_ids(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
@@ -184,7 +187,15 @@ fn big_data_lookup_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             let key = ctx.open_key(&key);
             match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
                 Some(value) => {
-                    let row_list = value.lookup_elem(row_key, rowterm);
+                    let row_list = value.lookup_elem(row_key, rowterm.clone());
+                    ctx.log_debug(
+                format!(
+                    "lookup_elem key: {},row_term:{:?}, row_list: {:?}: binary:{:?}",
+                    row_key, rowterm, row_list,elem_specs
+                )
+                .as_str(),
+            );
+
                     to_redis_res(row_list.to_bytes())
                 }
                 None => to_redis_res(ErlRes::NotFound.to_bytes()),

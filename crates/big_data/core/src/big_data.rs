@@ -384,6 +384,14 @@ impl BigData {
                 }
                 return rs;
             }
+            RowTerm::Bitstring(str) =>{
+            let vec = str.into_bytes();
+            let mut list = vec![];
+            for row in vec{
+                list.push(RowTerm::Integer(row as i64));
+            }
+            return self.lookup_elem(row_id, RowTerm::List(list));
+        }
             _ => {}
         }
         let l: Vec<&RowTerm> = Vec::new();

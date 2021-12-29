@@ -27,15 +27,18 @@
 
 -include("big_data.hrl").
 
--export([start/0,stop/0,command/1, backend/0]).
+-export([start/0, stop/0, command/1, backend/0]).
 
 -callback command(#bd_wal{}) -> term().
+
 start() ->
     Backend = application:get_env(big_data, big_data_backend, redis),
     cool_tools_backend:create(?MODULE, Backend),
     ok.
+
 stop() ->
     ok.
+
 command(#bd_wal{action = Action, args = _Args} = Wal)
     when Action == insert;
          Action == update_counter;
@@ -49,7 +52,7 @@ command(#bd_wal{action = Action, args = _Args} = Wal)
             {error, bd_log_wal_not_started}
     end;
 command(#bd_wal{action = _Action, args = _Args} = Wal) ->
-            big_data_backend:command(Wal).
+    big_data_backend:command(Wal).
 
 backend() ->
     big_data_backend:backend().

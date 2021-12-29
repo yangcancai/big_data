@@ -15,7 +15,7 @@
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
 %%%
-   
+
 %%% @doc
 %%%
 %%% @end
@@ -27,11 +27,9 @@
 
 -include("big_data.hrl").
 
--export([new/0, insert/3, insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4, get_row_ids/3,
-         get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2, remove_row/3,
-         remove_row_ids/4, row_id/1]).
-
-
+-export([new/0, insert/3, insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
+         get_row_ids/3, get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2,
+         remove_row/3, remove_row_ids/4, row_id/1]).
 -export([command/1]).
 
 command(#bd_wal{action = Action, args = Args}) ->
@@ -41,24 +39,22 @@ new() ->
     {ok, bd_store_redis:pid()}.
 
 insert(Ref, BigKey, R) ->
-bd_store_redis:term_cmd(Ref,
-                        ["big_data.set", BigKey,
-                        erlang:term_to_binary(R)]).
-
+    bd_store_redis:term_cmd(Ref, ["big_data.set", BigKey, erlang:term_to_binary(R)]).
 
 -spec insert(Ref :: big_data(),
              BigKey :: big_key(),
              RowID :: row_id(),
              Time :: t(),
              Term :: term()) ->
-                 ok.
+                ok.
 insert(Ref, BigKey, RowID, Time, Term)
     when is_binary(BigKey), is_binary(RowID), is_integer(Time) ->
     bd_store_redis:term_cmd(Ref,
-                        ["big_data.set", BigKey,
-                        erlang:term_to_binary(#row_data{row_id = RowID,
-                                  time = Time,
-                                  term = Term})]).
+                            ["big_data.set",
+                             BigKey,
+                             erlang:term_to_binary(#row_data{row_id = RowID,
+                                                             time = Time,
+                                                             term = Term})]).
 
 -spec update_elem(Ref :: big_data(),
                   BigKey :: big_key(),
@@ -66,7 +62,11 @@ insert(Ref, BigKey, RowID, Time, Term)
                   ElemSpecs :: elem_specs()) ->
                      [boolean()] | ?BD_NOTFOUND.
 update_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.update_elem", BigKey, RowID, erlang:term_to_binary(ElemSpecs)]).
+    bd_store_redis:term_cmd(Ref,
+                            ["big_data.update_elem",
+                             BigKey,
+                             RowID,
+                             erlang:term_to_binary(ElemSpecs)]).
 
 -spec update_counter(Ref :: big_data(),
                      BigKey :: big_key(),
@@ -74,16 +74,20 @@ update_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(Row
                      ElemSpecs :: elem_specs()) ->
                         [boolean()] | ?BD_NOTFOUND.
 update_counter(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.update_counter",BigKey, RowID, erlang:term_to_binary(ElemSpecs)]).
+    bd_store_redis:term_cmd(Ref,
+                            ["big_data.update_counter",
+                             BigKey,
+                             RowID,
+                             erlang:term_to_binary(ElemSpecs)]).
 
 -spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list() | ?BD_NOTFOUND.
 get(Ref, BigKey) when is_binary(BigKey) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.get",BigKey]).
+    bd_store_redis:term_cmd(Ref, ["big_data.get", BigKey]).
 
 -spec get_row(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
-                 row_data() | ?BD_NOTFOUND | nil.
+                 row_data_list() | ?BD_NOTFOUND | nil.
 get_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.get_row",BigKey, RowID]).
+    bd_store_redis:term_cmd(Ref, ["big_data.get_row", BigKey, RowID]).
 
 -spec get_range(Ref :: big_data(),
                 BigKey :: binary(),
@@ -92,7 +96,7 @@ get_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
                    row_data_list() | ?BD_NOTFOUND.
 get_range(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.get_range",BigKey, StartTime, EndTime]).
+    bd_store_redis:term_cmd(Ref, ["big_data.get_range", BigKey, StartTime, EndTime]).
 
 -spec get_range_row_ids(Ref :: big_data(),
                         BigKey :: big_key(),
@@ -106,7 +110,7 @@ get_range_row_ids(Ref, BigKey, StartTime, EndTime)
 -spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) ->
                      row_id_list() | ?BD_NOTFOUND.
 get_row_ids(Ref, BigKey, Time) when is_binary(BigKey), is_integer(Time) ->
-    bd_store_reids:term_cmd(Ref, ["big_data.get_row_ids", BigKey, Time]).
+    bd_store_redis:term_cmd(Ref, ["big_data.get_row_ids", BigKey, Time]).
 
 -spec get_time_index(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
                         t() | ?BD_NOTFOUND.
@@ -119,11 +123,11 @@ get_time_index(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
                   ElemSpec :: elem_specs()) ->
                      tuple() | ?BD_NOTFOUND.
 lookup_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
-   bd_store_redis:term_cmd(Ref, ["big_data.lookup_elem", BigKey, RowID, ElemSpecs]).
+    bd_store_redis:term_cmd(Ref, ["big_data.lookup_elem", BigKey, RowID, erlang:term_to_binary(ElemSpecs)]).
 
 -spec remove(Ref :: big_data(), BigKey :: binary()) -> ok.
 remove(Ref, BigKey) when is_binary(BigKey) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.remove",BigKey]).
+    bd_store_redis:term_cmd(Ref, ["big_data.remove", BigKey]).
 
 -spec remove_row(Ref :: big_data(), BigKey :: binary(), RowID :: binary()) -> ok.
 remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
@@ -136,7 +140,8 @@ remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
                         ok.
 remove_row_ids(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.remove_row_ids",BigKey, StartTime, EndTime]).
+    bd_store_redis:term_cmd(Ref, ["big_data.remove_row_ids", BigKey, StartTime, EndTime]).
+
 row_id(RowID) when is_integer(RowID) ->
     erlang:integer_to_binary(RowID);
 row_id(RowID) when is_list(RowID) ->

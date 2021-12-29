@@ -415,3 +415,11 @@ fn rowterm_eq() {
     let b = RowTerm::Bin(vec![1, 2, 3]);
     assert_eq!(a, b)
 }
+#[test]
+fn lookup_elem(){
+    let mut big_data = BigData::new();
+    let d = RowData::new("1", RowTerm::Integer(1), 10);
+    big_data.insert(d.clone());
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));  
+    assert_eq!(rs, vec![&RowTerm::Integer(1)]);
+}
