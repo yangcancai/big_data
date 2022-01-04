@@ -234,11 +234,11 @@ fn get_row<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     if let Some(big_data) = read.get(u8_to_string(&big_key).as_ref()) {
-        let rs = big_data.get(u8_to_string(&row_id).as_ref());
-        Ok((rs).encode(env))
-    } else {
-        Ok(atoms::notfound().encode(env))
+       if let Some(rs) = big_data.get(u8_to_string(&row_id).as_ref()){
+        return Ok((vec![rs]).encode(env));
+       }
     }
+    Ok((Vec::<&RowData>::new()).encode(env))
 }
 #[rustler::nif]
 fn get<'a>(
@@ -249,7 +249,7 @@ fn get<'a>(
     let read = resource.read();
     let list = read.to_list(u8_to_string(&big_key).as_ref());
     if list == None {
-        Ok(atoms::notfound().encode(env))
+        Ok((Vec::<&RowData>::new()).encode(env))
     } else {
         Ok((list).encode(env))
     }
@@ -271,7 +271,7 @@ fn get_range<'a>(
     let read = resource.read();
     let list = read.get_range(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
     if list == None {
-        Ok(atoms::notfound().encode(env))
+        Ok((Vec::<&RowData>::new()).encode(env))
     } else {
         Ok((list).encode(env))
     }
@@ -288,7 +288,7 @@ fn get_range_row_ids<'a>(
     let read = resource.read();
     let list = read.get_range_row_ids(u8_to_string(&big_key).as_ref(), start_time.0, end_time.0);
     if list == None {
-        Ok(atoms::notfound().encode(env))
+        Ok((Vec::<&String>::new()).encode(env))
     } else {
         Ok((list).encode(env))
     }
@@ -303,7 +303,7 @@ fn get_row_ids<'a>(
     let read = resource.read();
     let list = read.get_row_ids(u8_to_string(&big_key).as_ref(), time.0);
     if list == None {
-        Ok(atoms::notfound().encode(env))
+        Ok((Vec::<&String>::new()).encode(env))
     } else {
         Ok((list).encode(env))
     }
