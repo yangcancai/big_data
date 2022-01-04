@@ -46,7 +46,7 @@ command(#bd_wal{action = Action, args = _Args} = Wal)
          Action == remove_row ->
     case persistent_term:get('$bd_log_wal_started') of
         true ->
-            bd_log_wal:write_sync(Wal#bd_wal{module = big_data_backend:backend()}),
+            bd_log_wal:write_sync(Wal),
             big_data_backend:command(Wal);
         false ->
             {error, bd_log_wal_not_started}

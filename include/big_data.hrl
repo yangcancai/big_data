@@ -83,7 +83,6 @@
 -record(bd_wal,
         {id = 0 :: non_neg_integer(),
          action = write :: ation(),
-         module = undefined :: atom(),
          args = [] :: list(),
          time = erlang:system_time(1000) :: pos_integer()}).
 -record(bd_log_wal_state,
