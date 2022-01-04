@@ -81,7 +81,7 @@
 -define(BD_RECOVER_FINISHED, recover_finished).
 
 -record(bd_wal,
-        {id = 0 :: pos_integer(),
+        {id = 0 :: non_neg_integer(),
          action = write :: ation(),
          module = undefined :: atom(),
          args = [] :: list(),
@@ -91,10 +91,10 @@
          data_dir = <<"/tmp/big_data">> :: string(),
          file_name :: maybe(file:filename()),
          file_num = 1 :: pos_integer(),
-         file_size = 0 :: pos_integer(),
-         wal_buffer_tid :: reference(),
-         id_seq = 0 :: pos_integer(),
-         log_seq = 0 :: pos_integer(),
+         file_size = 0 :: non_neg_integer(),
+         wal_buffer_tid :: ets:tid(),
+         id_seq = 0 :: non_neg_integer(),
+         log_seq = 0 :: non_neg_integer(),
          max_size_bytes = ?BD_WAL_MAX_SIZE_BYTES :: pos_integer(),
          write_strategy = default :: wal_write_strategy(),
          file_modes = [raw, write, read, binary] :: list(),

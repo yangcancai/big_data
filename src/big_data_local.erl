@@ -79,23 +79,21 @@ update_counter(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(
             BoolL
     end.
 
--spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list() | ?BD_NOTFOUND.
+-spec get(Ref :: big_data(), BigKey :: big_key()) -> row_data_list().
 get(Ref, BigKey) when is_binary(BigKey) ->
     case big_data_nif:get(Ref, BigKey) of
-        ?BD_NOTFOUND ->
+        [] ->
             reload(Ref, BigKey, fun(RowDataList) -> RowDataList end);
         Result ->
             Result
     end.
 
 -spec get_row(Ref :: big_data(), BigKey :: big_key(), RowID :: row_id()) ->
-                 row_data() | ?BD_NOTFOUND | nil.
+                 row_data_list().
 get_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
     case big_data_nif:get_row(Ref, BigKey, RowID) of
-        ?BD_NOTFOUND ->
-            reload(Ref, BigKey, fun(_RowDataList) -> big_data_nif:get_row(Ref, BigKey, RowID) end);
-        nil ->
-            nil;
+        [] ->
+            [];
         RowData ->
             RowData
     end.
@@ -108,7 +106,7 @@ get_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
 get_range(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
     case big_data_nif:get_range(Ref, BigKey, StartTime, EndTime) of
-        ?BD_NOTFOUND ->
+        [] ->
             reload(Ref,
                    BigKey,
                    fun(_) -> big_data_nif:get_range(Ref, BigKey, StartTime, EndTime) end);
@@ -120,11 +118,11 @@ get_range(Ref, BigKey, StartTime, EndTime)
                         BigKey :: big_key(),
                         StartTime :: t(),
                         EndTime :: t()) ->
-                           row_id_list() | ?BD_NOTFOUND.
+                           row_id_list().
 get_range_row_ids(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
     case big_data_nif:get_range_row_ids(Ref, BigKey, StartTime, EndTime) of
-        ?BD_NOTFOUND ->
+        [] ->
             reload(Ref,
                    BigKey,
                    fun(_) -> big_data_nif:get_range_row_ids(Ref, BigKey, StartTime, EndTime) end);
@@ -133,10 +131,10 @@ get_range_row_ids(Ref, BigKey, StartTime, EndTime)
     end.
 
 -spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) ->
-                     row_id_list() | ?BD_NOTFOUND.
+                     row_id_list().
 get_row_ids(Ref, BigKey, Time) when is_binary(BigKey), is_integer(Time) ->
     case big_data_nif:get_row_ids(Ref, BigKey, Time) of
-        ?BD_NOTFOUND ->
+        [] ->
             reload(Ref, BigKey, fun(_) -> big_data_nif:get_row_ids(Ref, BigKey, Time) end);
         RowIDList ->
             RowIDList
@@ -179,12 +177,7 @@ remove(Ref, BigKey) when is_binary(BigKey) ->
 
 -spec remove_row(Ref :: big_data(), BigKey :: binary(), RowID :: binary()) -> ok.
 remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
-    case big_data_nif:remove_row(Ref, BigKey, RowID) of
-        ?BD_NOTFOUND ->
-            reload(Ref, BigKey, fun(_) -> big_data_nif:remove_row(Ref, BigKey, RowID) end);
-        ok ->
-            ok
-    end.
+    big_data_nif:remove_row(Ref, BigKey, RowID).
 
 -spec remove_row_ids(Ref :: big_data(),
                      BigKey :: big_key(),
@@ -193,27 +186,20 @@ remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
                         ok.
 remove_row_ids(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
-    case big_data_nif:remove_row_ids(Ref, BigKey, StartTime, EndTime) of
-        ?BD_NOTFOUND ->
-            reload(Ref,
-                   BigKey,
-                   fun(_) -> big_data_nif:remove_row_ids(Ref, BigKey, StartTime, EndTime) end);
-        ok ->
-            ok
-    end.
+    big_data_nif:remove_row_ids(Ref, BigKey, StartTime, EndTime).
 
 reload(Ref, BigKey) when is_binary(BigKey) ->
     case bd_backend_store:handle_get(BigKey) of
         [] ->
-            ?BD_NOTFOUND;
+            [];
         RowDataList ->
             ok = big_data_nif:insert_new(Ref, BigKey, RowDataList)
     end.
 
 reload(Ref, BigKey, Callback) when is_binary(BigKey), is_function(Callback) ->
     case reload(Ref, BigKey) of
-        ?BD_NOTFOUND ->
-            ?BD_NOTFOUND;
+        []->
+            [];
         RowDataList ->
             Callback(RowDataList)
     end.

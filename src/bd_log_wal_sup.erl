@@ -83,15 +83,6 @@ stop_child() ->
 %% this function is called by the new process to find out about
 %% restart strategy, maximum restart frequency and child
 %% specifications.
--spec init(Args :: term()) ->
-              {ok,
-               {SupFlags ::
-                    {RestartStrategy :: supervisor:strategy(),
-                     MaxR :: non_neg_integer(),
-                     MaxT :: non_neg_integer()},
-                [ChildSpec :: supervisor:child_spec()]}} |
-              ignore |
-              {error, Reason :: term()}.
 init([]) ->
     MaxRestarts = 1,
     MaxSecondsBetweenRestarts = 5,

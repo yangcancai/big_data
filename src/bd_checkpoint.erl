@@ -39,10 +39,10 @@
 -define(SERVER, ?MODULE).
 
 -record(bd_checkpoint_state,
-        {tid :: reference(),
+        {tid :: ets:tid() | undefined,
          ref :: reference(),
-         checkpoint_seq = 0 :: pos_integer(),
-         last_checkpoint_time = 0 :: pos_integer()}).
+         checkpoint_seq = 0 :: non_neg_integer(),
+         last_checkpoint_time = 0 :: non_neg_integer()}).
 
 %%%===================================================================
 %%% API
@@ -225,7 +225,7 @@ checkpoint_chunk(Ref, List) ->
     Chunk =
         lists:foldl(fun(BigKey, Acc) ->
                        case big_data_nif:get(Ref, BigKey) of
-                           ?BD_NOTFOUND ->
+                           [] ->
                                Acc;
                            RowDataList ->
                                [{BigKey, RowDataList} | Acc]
