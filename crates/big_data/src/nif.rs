@@ -234,9 +234,9 @@ fn get_row<'a>(
 ) -> NifResult<Term<'a>> {
     let read = resource.read();
     if let Some(big_data) = read.get(u8_to_string(&big_key).as_ref()) {
-       if let Some(rs) = big_data.get(u8_to_string(&row_id).as_ref()){
-        return Ok((vec![rs]).encode(env));
-       }
+        if let Some(rs) = big_data.get(u8_to_string(&row_id).as_ref()) {
+            return Ok((vec![rs]).encode(env));
+        }
     }
     Ok((Vec::<&RowData>::new()).encode(env))
 }

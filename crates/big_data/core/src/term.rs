@@ -1,3 +1,4 @@
+use crate::big_data::BigData;
 use crate::big_data::RowData;
 use crate::big_data::RowTerm;
 use crate::traits::FromBytes;
@@ -69,6 +70,16 @@ impl ToBytes for Vec<&RowData> {
         Ok(RawTerm::List(rs).to_bytes())
     }
 }
+impl ToBytes for BigData {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        self.to_list().to_bytes()
+    }
+}
+impl ToBytes for &BigData {
+    fn to_bytes(self) -> Result<Vec<u8>> {
+        self.to_list().to_bytes()
+    }
+}
 impl ToBytes for &RowData {
     fn to_bytes(self) -> Result<Vec<u8>> {
         Ok(rowdata_to_raw(self)?.to_bytes())
@@ -105,7 +116,9 @@ impl ToBytes for Vec<&String> {
     fn to_bytes(self) -> Result<Vec<u8>> {
         let mut rs = vec![];
         for row in self {
-            rs.push(to_raw_term(RowTerm::Bin((*row).clone().as_bytes().to_vec()))?);
+            rs.push(to_raw_term(RowTerm::Bin(
+                (*row).clone().as_bytes().to_vec(),
+            ))?);
         }
         Ok(RawTerm::List(rs).to_bytes())
     }
@@ -115,6 +128,19 @@ impl ToBytes for Option<u128> {
         match self {
             Some(value) => Ok(to_raw_term(RowTerm::Integer(value as i64))?.to_bytes()),
             None => ErlRes::NotFound.to_bytes(),
+        }
+    }
+}
+impl FromBytes for BigData {
+    fn from_bytes(b: &[u8]) -> Result<Self> {
+        let r: Result<Vec<RowData>> = Vec::<RowData>::from_bytes(b);
+        let mut rs = BigData::new();
+        match r {
+            Ok(term) => {
+                rs.insert_list(term);
+                Ok(rs)
+            }
+            Err(_) => Ok(rs),
         }
     }
 }
@@ -169,16 +195,16 @@ pub fn raw_to_rowdata(term: RawTerm) -> Result<Vec<RowData>> {
                 if let RawTerm::Binary(row_id) = &tuple[1] {
                     let time = parse_time(&tuple[3])?;
                     return Ok(vec![RowData::new(
-                                std::str::from_utf8(row_id)?,
-                                to_row_term(tuple[2].clone())?,
-                                time,
-                            )]);
-                    }else{
-                return Err(Error::msg(
-                    "RowData tuple invalid: The row_id is not binary",
-                ));
-                    }
+                        std::str::from_utf8(row_id)?,
+                        to_row_term(tuple[2].clone())?,
+                        time,
+                    )]);
                 } else {
+                    return Err(Error::msg(
+                        "RowData tuple invalid: The row_id is not binary",
+                    ));
+                }
+            } else {
                 return Err(Error::msg(
                     "RowData tuple invalid: The record must be row_data",
                 ));

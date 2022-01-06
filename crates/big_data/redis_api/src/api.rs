@@ -30,16 +30,22 @@ use core::term::ErlRes;
 use core::traits::FromBytes;
 use core::traits::ToBytes;
 use redis_module::native_types::RedisType;
+use redis_module::RedisModuleString;
+use redis_module::RedisModule_EmitAOF;
+use redis_module::RedisModule_SaveStringBuffer;
 use redis_module::{raw, Context, NextArg, RedisResult, RedisString};
+use std::os::raw::c_char;
+use std::os::raw::c_int;
 use std::os::raw::c_void;
+use std::ptr::null_mut;
 static MY_REDIS_TYPE: RedisType = RedisType::new(
     "big_data1",
     0,
     raw::RedisModuleTypeMethods {
         version: raw::REDISMODULE_TYPE_METHOD_VERSION as u64,
-        rdb_load: None,
-        rdb_save: None,
-        aof_rewrite: None,
+        rdb_load: Some(rdb_load),
+        rdb_save: Some(rdb_save),
+        aof_rewrite: Some(aof),
         free: Some(free),
 
         // Currently unused by Redis
@@ -57,7 +63,49 @@ static MY_REDIS_TYPE: RedisType = RedisType::new(
         defrag: None,
     },
 );
-
+unsafe extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut c_void {
+    let data = raw::load_string(rdb);
+    match data {
+        Ok(data) => {
+            let rs = BigData::from_bytes(data.as_slice()).unwrap();
+            Box::into_raw(Box::new(rs)) as *mut c_void
+        }
+        Err(_) => null_mut(),
+    }
+}
+unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
+    let v = &*(value as *mut BigData);
+    match v.to_bytes() {
+        Ok(v) => {
+            RedisModule_SaveStringBuffer.unwrap()(rdb, v.as_ptr().cast::<c_char>(), v.len());
+        }
+        Err(e) => {
+            println!("BigData Rdb save err: {:?}", e);
+        }
+    }
+}
+unsafe extern "C" fn aof(
+    rdb: *mut raw::RedisModuleIO,
+    key: *mut RedisModuleString,
+    value: *mut c_void,
+) {
+    let v = &*(value as *mut BigData);
+    let list = v.to_list();
+    for row in list.into_iter() {
+        match row.to_bytes() {
+            Ok(b) => RedisModule_EmitAOF.unwrap()(
+                rdb,
+                "BIG_DATA.INSERT".as_ptr().cast::<c_char>(),
+                "ss".as_ptr().cast::<c_char>(),
+                key,
+                b.as_ptr().cast::<c_char>(),
+            ),
+            Err(e) => {
+                println!("BigData aof err: {:?}", e);
+            }
+        }
+    }
+}
 unsafe extern "C" fn free(value: *mut c_void) {
     Box::from_raw(value as *mut BigData);
 }
@@ -109,11 +157,11 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     match decoded {
         Ok(row_data) => {
             // ctx.log_debug(
-                // format!(
-                    // "key: {}, binary: {:?}, row_data: {:?}",
-                    // key, binary, row_data
-                // )
-                // .as_str(),
+            // format!(
+            // "key: {}, binary: {:?}, row_data: {:?}",
+            // key, binary, row_data
+            // )
+            // .as_str(),
             // );
 
             let key = ctx.open_key_writable(&key);
@@ -153,9 +201,9 @@ fn big_data_remove(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
     let key = args.next_arg()?;
     let key = ctx.open_key_writable(&key);
-    match key.delete(){
+    match key.delete() {
         Ok(_ok) => to_redis_res_ok(),
-        Err(e) => Err(e)
+        Err(e) => Err(e),
     }
 }
 fn big_data_remove_row_ids(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
@@ -189,12 +237,12 @@ fn big_data_lookup_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                 Some(value) => {
                     let row_list = value.lookup_elem(row_key, rowterm.clone());
                     ctx.log_debug(
-                format!(
-                    "lookup_elem key: {},row_term:{:?}, row_list: {:?}: binary:{:?}",
-                    row_key, rowterm, row_list,elem_specs
-                )
-                .as_str(),
-            );
+                        format!(
+                            "lookup_elem key: {},row_term:{:?}, row_list: {:?}: binary:{:?}",
+                            row_key, rowterm, row_list, elem_specs
+                        )
+                        .as_str(),
+                    );
 
                     to_redis_res(row_list.to_bytes())
                 }
