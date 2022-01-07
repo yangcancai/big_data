@@ -1,5 +1,5 @@
 # big_data
-Safe Rust code for creating Erlang NIF to store big data 
+Safe Rust code for creating Erlang NIF to store big data, supported redis module  
 
 ![CI](https://github.com/yangcancai/big_data/actions/workflows/ci.yml/badge.svg)
 
@@ -15,10 +15,13 @@ Safe Rust code for creating Erlang NIF to store big data
 * Clear Bucket
 * Query all data of the Bucket
 * Safe thread
+* Supported redis module(supoorted aof,rdb_save,rdb_load and aofrewrite)
+* Erlang External Term Format to communicate with redis
 
 ## Required 
-- cargo 1.52.0-nightly (32da9eaa5 2021-03-13) or later
+- cargo 1.52.0 (32da9eaa5 2021-03-13) or later
 - rebar 3.14.4 on Erlang/OTP 22 Erts 10.7.2.1
+- redis v4.0 or greater
 
 ## Comand 
 ```shell
@@ -107,7 +110,69 @@ Eshell V10.7.2.1  (abort with ^G)
 
 
 ```
-## Example
+## Redis Example(BigData)
+
+### Redis Command
+```rust
+        ["big_data.set", big_data_set, "write", 1, 1, 1],
+        ["big_data.update_elem", big_data_update_elem, "write", 1, 1, 1],
+        ["big_data.update_counter", big_data_update_counter, "write", 1, 1, 1],
+        ["big_data.remove", big_data_remove, "write", 1, 1, 1],
+        ["big_data.remove_row", big_data_remove_row, "write", 1, 1, 1],
+        ["big_data.remove_row_ids", big_data_remove_row_ids, "write", 1, 1, 1],
+        ["big_data.get_row", big_data_get_row, "readonly", 1, 1, 1],
+        ["big_data.get", big_data_get, "readonly", 1, 1, 1],
+        ["big_data.get_range", big_data_get_range, "readonly", 1, 1, 1],
+        ["big_data.get_range_row_ids", big_data_get_range_row_ids, "readonly", 1, 1, 1],
+        ["big_data.get_row_ids", big_data_get_row_ids, "readonly", 1, 1, 1],
+        ["big_data.get_time_index", big_data_get_time_index, "readonly", 1, 1, 1],
+        ["big_data.lookup_elem", big_data_lookup_elem, "readonly", 1, 1, 1],
+
+```
+### Erlang Command(big_data_redis)
+```erlang
+158> {ok,P} = big_data_redis:new().
+{ok,<0.410.0>}
+159> big_data_redis:insert(P,<<"a">>,<<"rowid1">>,erlang:system_time(1),{a,8,<<"a">>,"d",[{a,b}]}).
+ok
+160> big_data_redis:get_row(P,<<"a">>,<<"rowid1">>).
+[{row_data,<<"rowid1">>,
+           {a,8,<<"a">>,"d",[{a,b}]},
+           1641522837}]
+161> big_data_redis:get(P,<<"a">>).
+[
+ {row_data,<<"rowid1">>,
+           {a,8,<<"a">>,"d",[{a,b}]},
+           1641522837}]
+163> big_data_redis:update_elem(P,<<"a">>,<<"rowid1">>,{0,{1,a,<<"a">>}}).
+[true]
+164> big_data_redis:get_row(P,<<"a">>,<<"rowid1">>).
+[{row_data,<<"rowid1">>,
+           {{1,a,<<"a">>},8,<<"a">>,"d",[{a,b}]},
+           1641522837}]
+166> big_data_redis:update_counter(P,<<"a">>,<<"rowid1">>,[{1,1}]).
+[true]
+167> big_data_redis:get_row(P,<<"a">>,<<"rowid1">>).
+[{row_data,<<"rowid1">>,
+           {{1,a,<<"a">>},9,<<"a">>,"d",[{a,b}]},
+           1641522837}]
+168> big_data_redis:update_counter(P,<<"a">>,<<"rowid1">>,[{1,10}]).
+[true]
+169> big_data_redis:get_row(P,<<"a">>,<<"rowid1">>).
+[{row_data,<<"rowid1">>,
+           {{1,a,<<"a">>},19,<<"a">>,"d",[{a,b}]},
+           1641522837}]
+170> big_data_redis:lookup_elem(P,<<"a">>,<<"rowid1">>,{0,1}).
+{{1,a,<<"a">>},19}
+171> big_data_redis:lookup_elem(P,<<"a">>,<<"rowid1">>,{0}).
+{{1,a,<<"a">>}}
+172> big_data_redis:lookup_elem(P,<<"a">>,<<"rowid1">>,{10}).
+{}
+174> big_data_redis:lookup_elem(P,<<"a">>,<<"rowid1">>,[4]).
+{[{a,b}]}
+```
+
+## Nif Example
 ### Insert and Get
 ```erlang
 %% create a player bucket
