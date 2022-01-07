@@ -1,2 +1,2 @@
 [workspace]
-members = ["crates/big_data","crates/big_data/redis_api"]
+members = ["crates/big_data","crates/big_data/redis_api", "crates/big_data/core"]

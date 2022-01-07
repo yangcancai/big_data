@@ -44,7 +44,9 @@ all() ->
      update_elem,
      update_counter,
      lookup_elem,
-     insert_binary].
+     insert_binary,
+     all_term,
+     overflow].
 
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(?APP),
@@ -186,8 +188,8 @@ remove_row(_) ->
                  big_data_redis:get(Ref, BigKey)),
     ?assertEqual([], big_data_redis:get_row(Ref, BigKey, RowID)),
     ?assertEqual([#row_data{row_id = <<"2">>,
-                           term = 1,
-                           time = 2}],
+                            term = 1,
+                            time = 2}],
                  big_data_redis:get_row(Ref, BigKey, <<"2">>)),
     ok.
 
@@ -215,7 +217,10 @@ clear(_) ->
                             term = 1,
                             time = 2}],
                  big_data_redis:get(Ref, <<"b">>)),
-    ?assertEqual([#row_data{row_id = RowID, term = 1, time = 1}], big_data_redis:get_row(Ref, BigKey, RowID)),
+    ?assertEqual([#row_data{row_id = RowID,
+                            term = 1,
+                            time = 1}],
+                 big_data_redis:get_row(Ref, BigKey, RowID)),
     ok.
 
 range(_) ->
@@ -296,8 +301,8 @@ update_counter(_) ->
     ?assertEqual(notfound, big_data_redis:update_counter(Ref, <<"t">>, <<"1">>, {0, 2})),
     ?assertEqual([true], big_data_redis:update_counter(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = 3,
-                           time = 10}],
+                            term = 3,
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([true], big_data_redis:update_elem(Ref, BigKey, <<"1">>, {0, {1, 2}})),
@@ -305,8 +310,8 @@ update_counter(_) ->
                  big_data_redis:update_counter(Ref, BigKey, <<"1">>, [{0, 2}, {1, 3}])),
 
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {3, 5},
-                           time = 10}],
+                            term = {3, 5},
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([false, true, true, false],
@@ -315,9 +320,67 @@ update_counter(_) ->
                                                <<"1">>,
                                                [{4, 0}, {0, 2}, {1, 3}, {2, 4}])),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {5, 8},
-                           time = 10}],
+                            term = {5, 8},
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+
+    ok =
+        big_data_redis:insert(Ref,
+                              BigKey,
+                              #row_data{row_id = <<"1">>,
+                                        term = 1,
+                                        time = 10}),
+    ?assertEqual([true], big_data_redis:update_counter(Ref, BigKey, <<"1">>, {0, 2.6})),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            term = 3.6,
+                            time = 10}],
+                 big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+    ok =
+        big_data_redis:insert(Ref,
+                              BigKey,
+                              #row_data{row_id = <<"1">>,
+                                        term = {1, 1.0},
+                                        time = 10}),
+    ?assertEqual([true, true],
+                 big_data_redis:update_counter(Ref, BigKey, <<"1">>, [{1, 6}, {0, 2}])),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            term = {3, 7.0},
+                            time = 10}],
+                 big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+
+    ok =
+        big_data_redis:insert(Ref,
+                              BigKey,
+                              #row_data{row_id = <<"1">>,
+                                        term = <<"aaa">>,
+                                        time = 10}),
+
+    ?assertEqual([true], big_data_redis:update_counter(Ref, BigKey, <<"1">>, {0, 2.6})),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            term = <<"aaa">>,
+                            time = 10}],
+                 big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+
+    ok =
+        big_data_redis:insert(Ref,
+                              BigKey,
+                              #row_data{row_id = <<"1">>,
+                                        term = {a, 0.1},
+                                        time = 10}),
+
+    ?assertEqual([true], big_data_redis:update_counter(Ref, BigKey, <<"1">>, {1, 2.6})),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            term = {a, 2.7},
+                            time = 10}],
+                 big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+
+    ?assertEqual([true],
+                 big_data_redis:update_counter(Ref, BigKey, <<"1">>, {1, 9223372036854775807})),
+    ?assertEqual([#row_data{row_id = <<"1">>,
+                            term = {a, 9.223372036854776e18},
+                            time = 10}],
+                 big_data_redis:get_row(Ref, BigKey, <<"1">>)),
+
     ok.
 
 update_elem(_) ->
@@ -335,8 +398,8 @@ update_elem(_) ->
     ?assertEqual(notfound, big_data_redis:update_elem(Ref, <<"b">>, <<"0">>, {0, 2})),
     ?assertEqual([true], big_data_redis:update_elem(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = 2,
-                           time = 10}],
+                            term = 2,
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([false], big_data_redis:update_elem(Ref, BigKey, <<"2">>, {0, 2})),
@@ -351,8 +414,8 @@ update_elem(_) ->
                                             <<"1">>,
                                             [{0, b}, {1, 2}, {2, <<"world">>}])),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {b, 2, <<"world">>},
-                           time = 10}],
+                            term = {b, 2, <<"world">>},
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([true, true, false],
@@ -362,8 +425,8 @@ update_elem(_) ->
                                             [{0, c}, {1, 3}, {3, <<"world">>}])),
 
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {c, 3, <<"world">>},
-                           time = 10}],
+                            term = {c, 3, <<"world">>},
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ok.
@@ -385,8 +448,8 @@ lookup_elem(_) ->
     ?assertEqual({a, 1}, big_data_redis:lookup_elem(Ref, BigKey, <<"1">>, {0, 1, 2})),
     ?assertEqual({1, a}, big_data_redis:lookup_elem(Ref, BigKey, <<"1">>, {2, 1, 0})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {a, 1},
-                           time = 10}],
+                            term = {a, 1},
+                            time = 10}],
                  big_data_redis:get_row(Ref, BigKey, <<"1">>)),
 
     ok =
@@ -455,3 +518,80 @@ insert_binary(_) ->
      end
      || _ <- lists:seq(1, 100)],
     ok.
+
+all_term(_) ->
+    %% biger neg_integer
+    %% FIXME
+    %% do_insert_check(?LINE,-999999999999999999999999999999999),
+    % do_insert_check(?LINE,-9223372036854775809),
+    do_insert_check(?LINE, -9223372036854775808),
+    %% neg_integer
+    do_insert_check(?LINE, -1),
+    %% zero
+    do_insert_check(?LINE, 0),
+    %% pos_integer
+    do_insert_check(?LINE, 1),
+    do_insert_check(?LINE, 9223372036854775807),
+    %% FIXME
+    %% do_insert_check(?LINE,9223372036854775808),
+    do_insert_check(?LINE, -0.0000000000000000001),
+    do_insert_check(?LINE, -1.7976931348623157e308),
+    do_insert_check(?LINE, 1.7976931348623158e308),
+    do_insert_check(?LINE, 0.0),
+    do_insert_check(?LINE, 1.0),
+    do_insert_check(?LINE, a),
+    do_insert_check(?LINE, "a"),
+    do_insert_check(?LINE, <<"a">>),
+    do_insert_check(?LINE, <<"你好我是,中国人"/utf8>>),
+    do_insert_check(?LINE, erlang:term_to_binary({})),
+    do_insert_check(?LINE, {}),
+    do_insert_check(?LINE, {[]}),
+    do_insert_check(?LINE, []),
+    do_insert_check(?LINE, [[]]),
+    do_insert_check(?LINE, {1}),
+    do_insert_check(?LINE, {a}),
+    do_insert_check(?LINE, {<<"a">>}),
+    do_insert_check(?LINE, {"a"}),
+    do_insert_check(?LINE, {["a"]}),
+    do_insert_check(?LINE, [N || N <- lists:seq(1, 10000)]),
+    do_insert_check(?LINE, erlang:list_to_tuple([N || N <- lists:seq(1, 10000)])),
+    ok.
+
+do_insert_check(Line, Term) ->
+    {ok, Ref} = big_data_redis:new(),
+    BigKey = uid(),
+    RowID = uid(),
+    T = erlang:system_time(1),
+    ok = big_data_redis:insert(Ref, BigKey, RowID, T, Term),
+    ?assertEqual({Line,
+                  [#row_data{row_id = RowID,
+                             term = Term,
+                             time = T}]},
+                 {Line, big_data_redis:get(Ref, BigKey)}),
+    ok = big_data_redis:remove(Ref, BigKey),
+    ok.
+
+overflow(_) ->
+    {ok, Ref} = big_data_redis:new(),
+    BigKey = uid(),
+    RowID = uid(),
+    T = erlang:system_time(1),
+
+    ok =
+        big_data_redis:insert(Ref,
+                              BigKey,
+                              #row_data{row_id = RowID,
+                                        term = {a, 1},
+                                        time = T}),
+    ?assertEqual([true],
+                 big_data_redis:update_counter(Ref, BigKey, RowID, {1, 9223372036854775807})),
+    ?assertEqual([#row_data{row_id = RowID,
+                            term = {a, 1},
+                            time = T}],
+                 big_data_redis:get(Ref, BigKey)),
+
+    ok.
+
+uid() ->
+    base64:encode(
+        crypto:strong_rand_bytes(32)).

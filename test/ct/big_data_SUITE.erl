@@ -89,8 +89,8 @@ insert_check(_Config) ->
                  big_data_nif:get(Ref, BigKey)),
 
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {a, 1},
-                           time = 1}],
+                            term = {a, 1},
+                            time = 1}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
     ok =
         big_data_nif:insert(Ref,
@@ -182,8 +182,8 @@ remove_row(_) ->
                  big_data_nif:get(Ref, BigKey)),
     ?assertEqual([], big_data_nif:get_row(Ref, BigKey, RowID)),
     ?assertEqual([#row_data{row_id = <<"2">>,
-                           term = 1,
-                           time = 2}],
+                            term = 1,
+                            time = 2}],
                  big_data_nif:get_row(Ref, BigKey, <<"2">>)),
     ok.
 
@@ -218,8 +218,7 @@ clear(_) ->
 range(_) ->
     {ok, Ref} = big_data_nif:new(),
     BigKey = <<"a">>,
-    ?assertEqual([],
-                 big_data_nif:get_range(Ref, BigKey, 2, 2)),
+    ?assertEqual([], big_data_nif:get_range(Ref, BigKey, 2, 2)),
     ok =
         big_data_nif:insert(Ref,
                             BigKey,
@@ -297,8 +296,8 @@ update_counter(_) ->
     ?assertEqual(notfound, big_data_nif:update_counter(Ref, <<"t">>, <<"1">>, {0, 2})),
     ?assertEqual([true], big_data_nif:update_counter(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = 3,
-                           time = 10}],
+                            term = 3,
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([true], big_data_nif:update_elem(Ref, BigKey, <<"1">>, {0, {1, 2}})),
@@ -306,8 +305,8 @@ update_counter(_) ->
                  big_data_nif:update_counter(Ref, BigKey, <<"1">>, [{0, 2}, {1, 3}])),
 
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {3, 5},
-                           time = 10}],
+                            term = {3, 5},
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([false, true, true, false],
@@ -316,8 +315,8 @@ update_counter(_) ->
                                              <<"1">>,
                                              [{4, 0}, {0, 2}, {1, 3}, {2, 4}])),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {5, 8},
-                           time = 10}],
+                            term = {5, 8},
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
     ok.
 
@@ -334,8 +333,8 @@ update_elem(_) ->
     ?assertEqual(notfound, big_data_nif:update_elem(Ref, <<"b">>, <<"0">>, {0, 2})),
     ?assertEqual([true], big_data_nif:update_elem(Ref, BigKey, <<"1">>, {0, 2})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = 2,
-                           time = 10}],
+                            term = 2,
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([false], big_data_nif:update_elem(Ref, BigKey, <<"2">>, {0, 2})),
@@ -350,8 +349,8 @@ update_elem(_) ->
                                           <<"1">>,
                                           [{0, b}, {1, 2}, {2, <<"world">>}])),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {b, 2, <<"world">>},
-                           time = 10}],
+                            term = {b, 2, <<"world">>},
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ?assertEqual([true, true, false],
@@ -361,8 +360,8 @@ update_elem(_) ->
                                           [{0, c}, {1, 3}, {3, <<"world">>}])),
 
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {c, 3, <<"world">>},
-                           time = 10}],
+                            term = {c, 3, <<"world">>},
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ok.
@@ -382,8 +381,8 @@ lookup_elem(_) ->
     ?assertEqual({a, 1}, big_data_nif:lookup_elem(Ref, BigKey, <<"1">>, {0, 1, 2})),
     ?assertEqual({1, a}, big_data_nif:lookup_elem(Ref, BigKey, <<"1">>, {2, 1, 0})),
     ?assertEqual([#row_data{row_id = <<"1">>,
-                           term = {a, 1},
-                           time = 10}],
+                            term = {a, 1},
+                            time = 10}],
                  big_data_nif:get_row(Ref, BigKey, <<"1">>)),
 
     ok =

@@ -12,7 +12,8 @@ name = "core"
 [dependencies]
 ordermap = "0.3.5"
 rustler = "0.22.2"
-erlang-term = "0.1.1" 
+#erlang-term = "0.1.1" 
+erlang-term = {git = "https://github.com/yangcancai/erlang-term.git", branch = "master"}
 nom = "*"
 anyhow = "*"
 num-bigint = "*"

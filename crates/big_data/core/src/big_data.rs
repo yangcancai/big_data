@@ -15,7 +15,6 @@ use std::io::Write;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Bound::Included;
-
 pub struct Time(pub u128);
 #[derive(Debug, Clone)]
 pub struct RowData {
@@ -56,6 +55,7 @@ pub enum RowTerm {
     List(Vec<RowTerm>),
     Bitstring(String),
     Bin(Vec<u8>),
+    Float(f64),
 }
 impl RowData {
     pub fn new(row_id: &str, row_term: RowTerm, time: u128) -> Self {
@@ -235,18 +235,17 @@ impl BigData {
                 if let Some(row_data) = self.rows.get_mut(row_id) {
                     match &mut row_data.term {
                         // tuple
-                        RowTerm::Tuple(row_data_tuple) => {
-                            if let RowTerm::Integer(i) = tuple[0] {
+                        RowTerm::Tuple(row_data_tuple) => match tuple[0] {
+                            RowTerm::Integer(i) => {
                                 if i >= 0 && row_data_tuple.len() as i64 > i {
                                     row_data_tuple[i as usize] += tuple[1].clone();
                                     return vec![true];
                                 } else {
                                     return vec![false];
                                 }
-                            } else {
-                                return vec![false];
                             }
-                        }
+                            _ => return vec![false],
+                        },
                         // list
                         RowTerm::List(row_data_list) => {
                             if let RowTerm::Integer(i) = tuple[0] {
@@ -649,17 +648,31 @@ impl RowTerm {
         matches!(self, RowTerm::Integer(_))
     }
 }
+fn add(a: i64, b: i64, default: RowTerm) -> RowTerm {
+    let (c, overflow) = a.overflowing_add(b);
+    if overflow {
+        default
+    } else {
+        RowTerm::Integer(c)
+    }
+}
+fn to_float(a: f64, b: f64, _default: RowTerm) -> RowTerm {
+    RowTerm::Float(a.add(b))
+}
 impl Add for RowTerm {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         match self {
-            RowTerm::Integer(self_inner) => {
-                if let RowTerm::Integer(other_inner) = other {
-                    RowTerm::Integer(other_inner + self_inner)
-                } else {
-                    self
-                }
-            }
+            RowTerm::Integer(inner) => match other {
+                RowTerm::Integer(other_inner) => add(inner, other_inner, self),
+                RowTerm::Float(other_inner) => to_float(inner as f64, other_inner, self),
+                _ => self,
+            },
+            RowTerm::Float(inner) => match other {
+                RowTerm::Float(other_inner) => to_float(inner, other_inner, self),
+                RowTerm::Integer(other_inner) => to_float(inner, other_inner as f64, self),
+                _ => self,
+            },
             r => r,
         }
     }
@@ -676,6 +689,10 @@ impl PartialEq for RowTerm {
         match self {
             RowTerm::Integer(self_inner) => match other {
                 RowTerm::Integer(inner) => self_inner == inner,
+                _ => false,
+            },
+            RowTerm::Float(self_inner) => match other {
+                RowTerm::Float(inner) => self_inner == inner,
                 _ => false,
             },
             RowTerm::Atom(self_inner) => match other {
@@ -755,6 +772,7 @@ impl Encoder for RowTerm {
                 binary.as_mut_slice().write_all(inner).unwrap();
                 binary.release(env).encode(env)
             }
+            RowTerm::Float(inner) => inner.encode(env),
         }
     }
 }

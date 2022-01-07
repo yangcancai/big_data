@@ -194,7 +194,10 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             ctx.replicate_verbatim();
             to_redis_res_ok()
         }
-        Err(e) => error(format!("ERR {:?}", e)),
+        Err(e) => {
+            ctx.log_debug(format!("Error: {:?}", e).as_str());
+            error(format!("ERR {:?}", e))
+        }
     }
 }
 /// Remove begin here

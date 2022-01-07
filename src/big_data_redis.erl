@@ -123,7 +123,11 @@ get_time_index(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
                   ElemSpec :: elem_specs()) ->
                      tuple() | ?BD_NOTFOUND.
 lookup_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
-    bd_store_redis:term_cmd(Ref, ["big_data.lookup_elem", BigKey, RowID, erlang:term_to_binary(ElemSpecs)]).
+    bd_store_redis:term_cmd(Ref,
+                            ["big_data.lookup_elem",
+                             BigKey,
+                             RowID,
+                             erlang:term_to_binary(ElemSpecs)]).
 
 -spec remove(Ref :: big_data(), BigKey :: binary()) -> ok.
 remove(Ref, BigKey) when is_binary(BigKey) ->

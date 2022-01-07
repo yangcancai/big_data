@@ -245,11 +245,9 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
         | RawTerm::AtomDeprecated(a)
         | RawTerm::SmallAtom(a)
         | RawTerm::SmallAtomDeprecated(a) => Ok(RowTerm::Atom(a)),
-        RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => {
-            Ok(RowTerm::Integer(i.to_i64().unwrap()))
-        }
-        RawTerm::SmallInt(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
-        RawTerm::Int(i) => Ok(RowTerm::Integer(i.to_i64().unwrap())),
+        RawTerm::SmallBigInt(_) | RawTerm::LargeBigInt(_) => int_to_row_term(raw),
+        RawTerm::SmallInt(_) => int_to_row_term(raw),
+        RawTerm::Int(_) => int_to_row_term(raw),
         RawTerm::SmallTuple(tuple) | RawTerm::LargeTuple(tuple) => {
             let mut t: Vec<RowTerm> = Vec::new();
             for row in tuple.iter() {
@@ -266,7 +264,9 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
         }
         RawTerm::String(str) => Ok(RowTerm::Bitstring(String::from_utf8(str)?)),
         RawTerm::Binary(bin) => Ok(RowTerm::Bin(bin)),
-        _ => Err(Error::msg("RowTerm tuple invalid")),
+        RawTerm::Nil => Ok(RowTerm::List(vec![])),
+        RawTerm::Float(f) => Ok(RowTerm::Float(f)),
+        other => Err(Error::msg(format!("RowTerm tuple invalid {:?}", other))),
     }
 }
 pub fn to_raw_term(row: RowTerm) -> Result<RawTerm> {
@@ -277,9 +277,9 @@ pub fn to_raw_term(row: RowTerm) -> Result<RawTerm> {
         RowTerm::Bin(bin) => Ok(RawTerm::Binary(bin)),
         RowTerm::Tuple(tuple) => tuple_to_raw_term(tuple),
         RowTerm::List(list) => list_to_raw_term(list),
+        RowTerm::Float(f) => Ok(RawTerm::Float(f)),
     }
 }
-
 pub fn list_to_raw_term(list: Vec<RowTerm>) -> Result<RawTerm> {
     if list.is_empty() {
         Ok(RawTerm::Nil)
@@ -304,7 +304,23 @@ fn tuple_to_raw_term(tuple: Vec<RowTerm>) -> Result<RawTerm> {
         Ok(RawTerm::LargeTuple(x))
     }
 }
-
+fn int_to_row_term(input: RawTerm) -> Result<RowTerm> {
+    match input {
+        RawTerm::SmallBigInt(i) | RawTerm::LargeBigInt(i) => match i.to_i64() {
+            Some(i) => Ok(RowTerm::Integer(i)),
+            None => Err(Error::msg(format!("RowTerm tuple invalid {:?}, Integer must included [-9223372036854775808, -9223372036854775807]", i))),
+        },
+        RawTerm::SmallInt(i) => match i.to_i64() {
+            Some(i) => Ok(RowTerm::Integer(i)),
+            None => Err(Error::msg(format!("RowTerm tuple invalid {:?}", i))),
+        },
+        RawTerm::Int(i) => match i.to_i64() {
+            Some(i) => Ok(RowTerm::Integer(i)),
+            None => Err(Error::msg(format!("RowTerm tuple invalid {:?}", i))),
+        },
+        other => Err(Error::msg(format!("RowTerm tuple invalid {:?}", other))),
+    }
+}
 fn big_int_to_raw_term(input: i64) -> RawTerm {
     if (0..=255).contains(&input) {
         RawTerm::SmallBigInt(input.into())

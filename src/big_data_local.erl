@@ -130,8 +130,7 @@ get_range_row_ids(Ref, BigKey, StartTime, EndTime)
             RowIDList
     end.
 
--spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) ->
-                     row_id_list().
+-spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) -> row_id_list().
 get_row_ids(Ref, BigKey, Time) when is_binary(BigKey), is_integer(Time) ->
     case big_data_nif:get_row_ids(Ref, BigKey, Time) of
         [] ->
@@ -198,7 +197,7 @@ reload(Ref, BigKey) when is_binary(BigKey) ->
 
 reload(Ref, BigKey, Callback) when is_binary(BigKey), is_function(Callback) ->
     case reload(Ref, BigKey) of
-        []->
+        [] ->
             [];
         RowDataList ->
             Callback(RowDataList)

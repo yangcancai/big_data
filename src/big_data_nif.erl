@@ -73,8 +73,7 @@ get_range(_Ref, _BigKey, _StartTime, _EndTime) ->
 get_range_row_ids(_Ref, _BigKey, _StartTime, _EndTime) ->
     not_loaded(?LINE).
 
--spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) ->
-                     row_id_list().
+-spec get_row_ids(Ref :: big_data(), BigKey :: big_key(), Time :: t()) -> row_id_list().
 get_row_ids(_Ref, _BigKey, _Time) ->
     not_loaded(?LINE).
 

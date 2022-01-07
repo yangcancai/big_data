@@ -33,7 +33,8 @@ test: epmd dialyzer
 
 eunit: epmd
 	./rebar3 do eunit --dir test/eunit -v
-
+redis: epmd
+	./rebar3 do ct --dir test/ct  --suite big_data_redis_SUITE -v --config test/ct/ct.config --sys_config config/test.config
 ct: epmd
 	sh crates/build_crates.sh clippy
 	sh crates/build_crates.sh test
