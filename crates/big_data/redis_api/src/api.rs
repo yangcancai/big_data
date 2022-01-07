@@ -22,6 +22,7 @@
 // Created : 2021-12-22T01:17:07+00:00
 //-------------------------------------------------------------------
 
+#![allow(clippy::all)]
 use anyhow::Result;
 use core::big_data::BigData;
 use core::big_data::RowData;
@@ -95,7 +96,7 @@ unsafe extern "C" fn aof(
         match row.to_bytes() {
             Ok(b) => RedisModule_EmitAOF.unwrap()(
                 rdb,
-                "BIG_DATA.INSERT".as_ptr().cast::<c_char>(),
+                "BIG_DATA.SET".as_ptr().cast::<c_char>(),
                 "ss".as_ptr().cast::<c_char>(),
                 key,
                 b.as_ptr().cast::<c_char>(),
@@ -108,6 +109,11 @@ unsafe extern "C" fn aof(
 }
 unsafe extern "C" fn free(value: *mut c_void) {
     Box::from_raw(value as *mut BigData);
+}
+fn replicate_verbatim(ctx: &Context, is_ok: bool) {
+    if is_ok {
+        ctx.replicate_verbatim();
+    }
 }
 /// Write begin here
 ///
@@ -122,7 +128,11 @@ fn big_data_update_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         Ok(rowterm) => {
             let key = ctx.open_key_writable(&key);
             match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
-                Some(value) => to_redis_res(value.update_elem(row_key, rowterm).to_bytes()),
+                Some(value) => {
+                    let rs = value.update_elem(row_key, rowterm).to_bytes();
+                    replicate_verbatim(ctx, rs.is_ok());
+                    to_redis_res(rs)
+                }
                 None => to_redis_res(ErlRes::NotFound.to_bytes()),
             }
         }
@@ -140,7 +150,11 @@ fn big_data_update_counter(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         Ok(row_term) => {
             let key = ctx.open_key_writable(&key);
             match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
-                Some(value) => to_redis_res(value.update_counter(row_key, row_term).to_bytes()),
+                Some(value) => {
+                    let rs = value.update_counter(row_key, row_term).to_bytes();
+                    replicate_verbatim(ctx, rs.is_ok());
+                    to_redis_res(rs)
+                }
                 None => to_redis_res(ErlRes::NotFound.to_bytes()),
             }
         }
@@ -176,6 +190,8 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                     key.set_value(&MY_REDIS_TYPE, big_data)?;
                 }
             }
+            // This function will replicate the command exactly as it was invoked by the client.
+            ctx.replicate_verbatim();
             to_redis_res_ok()
         }
         Err(e) => error(format!("ERR {:?}", e)),
@@ -192,6 +208,7 @@ fn big_data_remove_row(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
             value.remove(row_id);
+            ctx.replicate_verbatim();
             to_redis_res_ok()
         }
         None => to_redis_res_ok(),
@@ -202,7 +219,10 @@ fn big_data_remove(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let key = args.next_arg()?;
     let key = ctx.open_key_writable(&key);
     match key.delete() {
-        Ok(_ok) => to_redis_res_ok(),
+        Ok(_ok) => {
+            ctx.replicate_verbatim();
+            to_redis_res_ok()
+        }
         Err(e) => Err(e),
     }
 }
@@ -215,6 +235,7 @@ fn big_data_remove_row_ids(ctx: &Context, args: Vec<RedisString>) -> RedisResult
     match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
         Some(value) => {
             value.remove_row_ids(start_time as u128, end_time as u128);
+            ctx.replicate_verbatim();
             to_redis_res_ok()
         }
         None => to_redis_res_ok(),
@@ -355,7 +376,6 @@ fn to_redis_res(res: Result<Vec<u8>>) -> RedisResult {
     }
 }
 //////////////////////////////////////////////////////
-
 redis_module! {
     name: "big_data",
     version: 1,
