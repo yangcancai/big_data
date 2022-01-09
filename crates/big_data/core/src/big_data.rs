@@ -657,7 +657,12 @@ fn add(a: i64, b: i64, default: RowTerm) -> RowTerm {
     }
 }
 fn to_float(a: f64, b: f64, _default: RowTerm) -> RowTerm {
-    RowTerm::Float(a.add(b))
+    let c = a + b;
+    if c.is_finite() {
+        RowTerm::Float(c)
+    } else {
+        RowTerm::Float(a)
+    }
 }
 impl Add for RowTerm {
     type Output = Self;
