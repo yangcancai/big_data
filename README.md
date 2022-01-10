@@ -18,6 +18,16 @@ Safe Rust code for creating Erlang NIF to store big data, supported redis module
 * Supported redis module(supoorted aof,rdb_save,rdb_load and aofrewrite)
 * Erlang External Term Format to communicate with redis
 
+## Supported erlang type
+*  float(f64)
+*  integer(i64)
+*  atom
+*  string
+*  list
+*  binary
+*  tuple
+*  map
+
 ## Required 
 - cargo 1.52.0 (32da9eaa5 2021-03-13) or later
 - rebar 3.14.4 on Erlang/OTP 22 Erts 10.7.2.1
