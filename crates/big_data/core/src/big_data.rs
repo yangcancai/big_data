@@ -221,7 +221,15 @@ impl BigData {
         let list = self.get_range_row_ids(start_time, end_time);
         list.len()
     }
-
+    fn add(a: &mut RowTerm, b: &RowTerm) -> bool {
+        match a.clone().add(b.clone()) {
+            (new, false) => {
+                *a = new;
+                true
+            }
+            (_, _) => false,
+        }
+    }
     /// Update Counter for element
     ///
     /// # Examples
@@ -238,8 +246,10 @@ impl BigData {
                         RowTerm::Tuple(row_data_tuple) => match tuple[0] {
                             RowTerm::Integer(i) => {
                                 if i >= 0 && row_data_tuple.len() as i64 > i {
-                                    row_data_tuple[i as usize] += tuple[1].clone();
-                                    return vec![true];
+                                    return vec![Self::add(
+                                        &mut row_data_tuple[i as usize],
+                                        &tuple[1],
+                                    )];
                                 } else {
                                     return vec![false];
                                 }
@@ -250,8 +260,10 @@ impl BigData {
                         RowTerm::List(row_data_list) => {
                             if let RowTerm::Integer(i) = tuple[0] {
                                 if row_data_list.len() as i64 > i && i >= 0 {
-                                    row_data_list[i as usize] += tuple[1].clone();
-                                    return vec![true];
+                                    return vec![Self::add(
+                                        &mut row_data_list[i as usize],
+                                        &tuple[1],
+                                    )];
                                 } else {
                                     return vec![false];
                                 }
@@ -262,8 +274,7 @@ impl BigData {
                         // just single element
                         _ => {
                             if RowTerm::Integer(0) == tuple[0] {
-                                row_data.term += tuple[1].clone();
-                                return vec![true];
+                                return vec![Self::add(&mut row_data.term, &tuple[1])];
                             } else {
                                 return vec![false];
                             }
@@ -648,44 +659,52 @@ impl RowTerm {
         matches!(self, RowTerm::Integer(_))
     }
 }
-fn add(a: i64, b: i64, default: RowTerm) -> RowTerm {
+fn int_overflowing_add(a: i64, b: i64, default: RowTerm) -> (RowTerm, bool) {
     let (c, overflow) = a.overflowing_add(b);
     if overflow {
-        default
+        (default, overflow)
     } else {
-        RowTerm::Integer(c)
+        (RowTerm::Integer(c), overflow)
     }
 }
-fn to_float(a: f64, b: f64, _default: RowTerm) -> RowTerm {
+fn float_overflowing_add(a: f64, b: f64, _default: RowTerm) -> (RowTerm, bool) {
     let c = a + b;
+    //
     if c.is_finite() {
-        RowTerm::Float(c)
+        (RowTerm::Float(c), false)
     } else {
-        RowTerm::Float(a)
+        (RowTerm::Float(a), true)
     }
 }
 impl Add for RowTerm {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
+    type Output = (Self, bool);
+    fn add(self, other: Self) -> Self::Output {
         match self {
             RowTerm::Integer(inner) => match other {
-                RowTerm::Integer(other_inner) => add(inner, other_inner, self),
-                RowTerm::Float(other_inner) => to_float(inner as f64, other_inner, self),
-                _ => self,
+                RowTerm::Integer(other_inner) => int_overflowing_add(inner, other_inner, self),
+                RowTerm::Float(other_inner) => {
+                    float_overflowing_add(inner as f64, other_inner, self)
+                }
+                _ => (self, false),
             },
             RowTerm::Float(inner) => match other {
-                RowTerm::Float(other_inner) => to_float(inner, other_inner, self),
-                RowTerm::Integer(other_inner) => to_float(inner, other_inner as f64, self),
-                _ => self,
+                RowTerm::Float(other_inner) => float_overflowing_add(inner, other_inner, self),
+                RowTerm::Integer(other_inner) => {
+                    float_overflowing_add(inner, other_inner as f64, self)
+                }
+                _ => (self, false),
             },
-            r => r,
+            r => (r, false),
         }
     }
 }
 impl AddAssign for RowTerm {
     fn add_assign(&mut self, other: Self) {
         let new = self.clone().add(other);
-        *self = new;
+        match new {
+            (new, false) => *self = new,
+            (_new, true) => {}
+        }
     }
 }
 

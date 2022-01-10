@@ -46,6 +46,13 @@ all() ->
      lookup_elem,
      insert_binary,
      all_term,
+     integer,
+     float,
+     atom,
+     string,
+     tuple,
+     list,
+     binary,
      overflow].
 
 init_per_suite(Config) ->
@@ -518,9 +525,8 @@ insert_binary(_) ->
      end
      || _ <- lists:seq(1, 100)],
     ok.
-
-all_term(_) ->
-    %% biger neg_integer
+integer(_) ->
+    %% integer
     %% FIXME
     %% do_insert_check(?LINE,-999999999999999999999999999999999),
     % do_insert_check(?LINE,-9223372036854775809),
@@ -534,27 +540,48 @@ all_term(_) ->
     do_insert_check(?LINE, 9223372036854775807),
     %% FIXME
     %% do_insert_check(?LINE,9223372036854775808),
+
+ok.
+float(_) ->
+  %% float
     do_insert_check(?LINE, -0.0000000000000000001),
     do_insert_check(?LINE, -1.7976931348623157e308),
     do_insert_check(?LINE, 1.7976931348623158e308),
     do_insert_check(?LINE, 0.0),
     do_insert_check(?LINE, 1.0),
+     ok.
+
+atom(_) ->
+    %% atom
     do_insert_check(?LINE, a),
+    %% large atom
+    do_insert_check(?LINE, erlang:binary_to_atom(erlang:list_to_binary(string:copies("a", 100)),utf8)),
+    ok.
+string(_) ->
     do_insert_check(?LINE, "a"),
+    do_insert_check(?LINE, string:copies("a", 1000)),
+    ok.
+binary(_) ->
     do_insert_check(?LINE, <<"a">>),
     do_insert_check(?LINE, <<"你好我是,中国人"/utf8>>),
     do_insert_check(?LINE, erlang:term_to_binary({})),
+    do_insert_check(?LINE, erlang:list_to_binary(string:copies("a", 1000))),
+    do_insert_check(?LINE, {<<"a">>}),
+    ok.
+list(_) ->
+    do_insert_check(?LINE, [N || N <- lists:seq(1, 10000)]),
+    ok.
+tuple(_) ->
+    do_insert_check(?LINE, erlang:list_to_tuple([N || N <- lists:seq(1, 10000)])),
+    ok.
+all_term(_) ->
     do_insert_check(?LINE, {}),
     do_insert_check(?LINE, {[]}),
     do_insert_check(?LINE, []),
     do_insert_check(?LINE, [[]]),
-    do_insert_check(?LINE, {1}),
     do_insert_check(?LINE, {a}),
-    do_insert_check(?LINE, {<<"a">>}),
     do_insert_check(?LINE, {"a"}),
     do_insert_check(?LINE, {["a"]}),
-    do_insert_check(?LINE, [N || N <- lists:seq(1, 10000)]),
-    do_insert_check(?LINE, erlang:list_to_tuple([N || N <- lists:seq(1, 10000)])),
     ok.
 
 do_insert_check(Line, Term) ->
@@ -583,7 +610,7 @@ overflow(_) ->
                               #row_data{row_id = RowID,
                                         term = {a, 1},
                                         time = T}),
-    ?assertEqual([true],
+    ?assertEqual([false],
                  big_data_redis:update_counter(Ref, BigKey, RowID, {1, 9223372036854775807})),
     ?assertEqual([#row_data{row_id = RowID,
                             term = {a, 1},
