@@ -39,12 +39,12 @@ init_per_suite(Config) ->
     ok = application:load(?APP),
     ok = application:set_env(big_data, big_data_backend, local),
     big_data:start(),
-    new_meck(),
+    ct_base:new_meck(),
     Dir = "/tmp/big_data/test",
     [{dir, Dir} | Config].
 
 end_per_suite(Config) ->
-    del_meck(),
+    ct_base:del_meck(),
     Config.
 
 init_per_testcase(_Case, Config) ->
@@ -59,8 +59,7 @@ init_per_testcase(_Case, Config) ->
     ok = persistent_term:put('$bd_logger', logger),
     {ok, FileHandler} = bd_file_handle:start_link(),
     {ok, _} = bd_checkpoint:start_link(#{dir => ?config(dir, Config)}),
-    _ = ets:new(backend_store, [named_table, set, public]),
-    ok = bd_store_expect(bd_store_redis, backend_store),
+    ok = ct_base:bd_store_expect(bd_store_redis, backend_store),
     bd_backend_store:set_backend_store(bd_store_redis),
     [{backend_store, backend_store}, {file_handler, FileHandler} | Config].
 
@@ -69,49 +68,6 @@ end_per_testcase(_Case, Config) ->
     ok = bd_file_handle:stop(),
     ok.
 
-new_meck() ->
-    ok = meck:new(bd_store_redis, [non_strict, no_link]),
-    ok.
-
-bd_store_expect(Mod, Tab) ->
-    ok =
-        meck:expect(Mod,
-                    handle_get,
-                    fun(BigKey) ->
-                       case ets:lookup(Tab, BigKey) of
-                           [{_, V}] ->
-                               V;
-                           [] ->
-                               []
-                       end
-                    end),
-    ok =
-        meck:expect(Mod,
-                    handle_put,
-                    fun(BigKey, RowDataList) ->
-                       true = ets:insert(Tab, {BigKey, RowDataList}),
-                       ok
-                    end),
-    ok =
-        meck:expect(Mod,
-                    handle_put,
-                    fun(List) ->
-                       [true = ets:insert(Tab, {BigKey, RowDataList})
-                        || {BigKey, RowDataList} <- List],
-                       ok
-                    end),
-
-    ok =
-        meck:expect(Mod,
-                    handle_del,
-                    fun(BigKey) ->
-                       ets:delete(Tab, BigKey),
-                       ok
-                    end),
-    ok.
-
-del_meck() ->
-    meck:unload().
 
 recover(Config) ->
     Dir = ?config(dir, Config),

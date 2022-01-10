@@ -22,3 +22,5 @@ priv/libbig_data.so
 data
 logs
 target
+.idea
+big_data.iml

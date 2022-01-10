@@ -62,31 +62,21 @@ init_per_suite(Config) ->
         local
     end,
     ok = application:set_env(big_data, big_data_backend, B),
-    {ok, _} = application:ensure_all_started(?APP),
-    new_meck(),
+  ct_base:new_meck(),
+  {ok, _} = application:ensure_all_started(?APP),
     Config.
 
 end_per_suite(Config) ->
-    del_meck(),
+    ct_base:del_meck(),
     ok = application:stop(?APP),
     Config.
 
 init_per_testcase(_Case, Config) ->
+    ct_base:bd_store_expect(),
     Config.
 
 end_per_testcase(_Case, _Config) ->
     ok.
-
-new_meck() ->
-    % ok = meck:new(big_data_redis, [non_strict, no_link]),
-    ok.
-
-expect() ->
-    % ok = meck:expect(big_data_redis, test, fun() -> {ok, 1} end).
-    ok.
-
-del_meck() ->
-    meck:unload().
 
 insert_check(Config) ->
     insert_check(Config, big_data_redis),

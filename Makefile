@@ -38,7 +38,7 @@ redis: epmd
 ct: epmd
 	sh crates/build_crates.sh clippy
 	sh crates/build_crates.sh test
-	./rebar3 do ct --dir test/ct  --suite big_data_SUITE -v --config test/ct/ct.config --sys_config config/test.config
+	./rebar3 do ct --dir test/ct  --suite big_data_local_SUITE -v --config test/ct/ct.config --sys_config config/test.config
 	./rebar3 do ct --dir test/ct  --suite bd_log_wal_SUITE -v --config test/ct/ct.config --sys_config config/test.config
 
 testclean:

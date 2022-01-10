@@ -22,7 +22,7 @@
 %%% Created : 2021-05-06T01:58:41+00:00
 %%%-------------------------------------------------------------------
 
--module(big_data_SUITE).
+-module(big_data_local_SUITE).
 
 backend() ->
     big_data_local.
