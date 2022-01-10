@@ -199,10 +199,15 @@ fn update_elem<'a>(
         u8_to_string(&row_id).as_ref(),
         elem_spec,
     );
-    if b == None {
-        Ok(atoms::notfound().encode(env))
-    } else {
-        Ok(b.encode(env))
+    match b {
+        None => Ok(atoms::notfound().encode(env)),
+        Some(b) => {
+            if !b.is_empty() {
+                Ok(b.encode(env))
+            } else {
+                Ok(atoms::notfound().encode(env))
+            }
+        }
     }
 }
 #[rustler::nif]
@@ -219,10 +224,15 @@ fn update_counter<'a>(
         u8_to_string(&row_id).as_ref(),
         elem_spec,
     );
-    if b == None {
-        Ok(atoms::notfound().encode(env))
-    } else {
-        Ok(b.encode(env))
+    match b {
+        None => Ok(atoms::notfound().encode(env)),
+        Some(b) => {
+            if !b.is_empty() {
+                Ok(b.encode(env))
+            } else {
+                Ok(atoms::notfound().encode(env))
+            }
+        }
     }
 }
 #[rustler::nif]

@@ -22,8 +22,6 @@
 %%% Created : 2021-05-07T04:21:24+00:00
 %%%-------------------------------------------------------------------
 
--author("yangcancai").
-
 -ifndef(H_big_data_ct).
 
 -define(H_big_data_ct, true).

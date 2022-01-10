@@ -27,12 +27,23 @@
 
 -include("big_data.hrl").
 
--export([insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4, get_row_ids/3,
-         get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2, remove_row/3,
-         remove_row_ids/4, clear/1, reload/2, command/1, row_id/1]).
+-export([new/0, insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
+         get_row_ids/3, get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2,
+         remove_row/3, remove_row_ids/4, clear/1, reload/2, command/1, row_id/1]).
 
 command(#bd_wal{action = Action, args = Args}) ->
     apply(?MODULE, Action, [?BD_BIG_DATA_REF | Args]).
+
+new() ->
+    big_data_nif:new().
+
+insert(Ref, BigKey, R) ->
+    case is_list(R) of
+        true ->
+            big_data_nif:insert_new(Ref, BigKey, R);
+        false ->
+            big_data_nif:insert(Ref, BigKey, R)
+    end.
 
 -spec insert(Ref :: big_data(),
              BigKey :: big_key(),
@@ -56,9 +67,14 @@ insert(Ref, BigKey, RowID, Time, Term)
 update_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
     case big_data_nif:update_elem(Ref, BigKey, RowID, ElemSpecs) of
         ?BD_NOTFOUND ->
-            reload(Ref,
+            case reload(Ref,
                    BigKey,
-                   fun(_) -> big_data_nif:update_elem(Ref, BigKey, RowID, ElemSpecs) end);
+                   fun(_) -> big_data_nif:update_elem(Ref, BigKey, RowID, ElemSpecs) end) of
+                   [] ->
+                       ?BD_NOTFOUND;
+                    V ->
+                        V
+            end;
         BoolL ->
             BoolL
     end.
@@ -72,9 +88,15 @@ update_counter(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(
     case big_data_nif:update_counter(Ref, BigKey, RowID, ElemSpecs) of
         ?BD_NOTFOUND ->
             %% import from db
-            reload(Ref,
-                   BigKey,
-                   fun(_) -> big_data_nif:update_counter(Ref, BigKey, RowID, ElemSpecs) end);
+            case reload(Ref,
+                        BigKey,
+                        fun(_) -> big_data_nif:update_counter(Ref, BigKey, RowID, ElemSpecs) end)
+            of
+                [] ->
+                    ?BD_NOTFOUND;
+                V ->
+                    V
+            end;
         BoolL ->
             BoolL
     end.
@@ -157,9 +179,15 @@ get_time_index(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
 lookup_elem(Ref, BigKey, RowID, ElemSpecs) when is_binary(BigKey), is_binary(RowID) ->
     case big_data_nif:lookup_elem(Ref, BigKey, RowID, ElemSpecs) of
         ?BD_NOTFOUND ->
-            reload(Ref,
-                   BigKey,
-                   fun(_) -> big_data_nif:lookup_elem(Ref, BigKey, RowID, ElemSpecs) end);
+            case reload(Ref,
+                        BigKey,
+                        fun(_) -> big_data_nif:lookup_elem(Ref, BigKey, RowID, ElemSpecs) end)
+            of
+                [] ->
+                    ?BD_NOTFOUND;
+                V ->
+                    V
+            end;
         Tuple ->
             Tuple
     end.

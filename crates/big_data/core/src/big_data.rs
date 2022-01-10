@@ -1,13 +1,16 @@
 use super::atoms;
 use ordermap::set::OrderSet;
+use rustler::dynamic::get_type;
 use rustler::error::Error;
 use rustler::types::atom::Atom;
 use rustler::types::binary::OwnedBinary;
+use rustler::types::map::map_new;
 use rustler::types::tuple::get_tuple;
 use rustler::types::tuple::make_tuple;
 use rustler::Decoder;
 use rustler::Encoder;
 use rustler::Env;
+use rustler::MapIterator;
 use rustler::NifResult;
 use rustler::Term;
 use std::collections::{BTreeMap, HashMap};
@@ -56,6 +59,7 @@ pub enum RowTerm {
     Bitstring(String),
     Bin(Vec<u8>),
     Float(f64),
+    Map(Vec<(RowTerm, RowTerm)>),
 }
 impl RowData {
     pub fn new(row_id: &str, row_term: RowTerm, time: u128) -> Self {
@@ -773,6 +777,10 @@ impl PartialEq for RowTerm {
                 RowTerm::Bin(inner) => self_inner == inner,
                 _ => false,
             },
+            RowTerm::Map(self_inner) => match other {
+                RowTerm::Map(inner) => self_inner == inner,
+                _ => false,
+            },
         }
     }
 }
@@ -797,6 +805,13 @@ impl Encoder for RowTerm {
                 binary.release(env).encode(env)
             }
             RowTerm::Float(inner) => inner.encode(env),
+            RowTerm::Map(map) => {
+                let rs = map.iter().fold(map_new(env), |rs, (k, v)| {
+                    let rs = rs.map_put(k.encode(env), v.encode(env));
+                    rs.unwrap()
+                });
+                rs.encode(env)
+            }
         }
     }
 }
@@ -872,9 +887,12 @@ pub fn convert_to_integer(term: &Term) -> Option<u128> {
 }
 pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
     if term.is_number() {
-        match term.decode() {
+        match term.decode::<i64>() {
             Ok(i) => Some(RowTerm::Integer(i)),
-            Err(_) => None,
+            Err(_e) => match term.decode::<f64>() {
+                Ok(i) => Some(RowTerm::Float(i)),
+                Err(_e) => None,
+            },
         }
     } else if term.is_atom() {
         match term.atom_to_string() {
@@ -921,7 +939,29 @@ pub fn convert_to_row_term(term: &Term) -> Option<RowTerm> {
                 Err(_) => None,
             },
         }
+    } else if term.is_map() {
+        match term.decode::<MapIterator>() {
+            Ok(l) => {
+                let mut rs = Vec::new();
+                let mut n = 0;
+                for (k, v) in l {
+                    let k = convert_to_row_term(&k);
+                    let v = convert_to_row_term(&v);
+                    n += 1;
+                    if let (Some(k), Some(v)) = (k, v) {
+                        rs.push((k, v));
+                    }
+                }
+                if n == rs.len() {
+                    Some(RowTerm::Map(rs))
+                } else {
+                    None
+                }
+            }
+            Err(_e) => None,
+        }
     } else {
+        println!("unknown type = {:?}", get_type(*term));
         None
     }
 }

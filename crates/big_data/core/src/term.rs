@@ -7,6 +7,7 @@ use anyhow::Error;
 use anyhow::Result;
 use erlang_term::RawTerm;
 use num_traits::ToPrimitive;
+pub type R<T> = anyhow::Result<T>;
 pub enum ErlRes<T, E> {
     Ok,
     OkTuple(T),
@@ -16,13 +17,16 @@ pub enum ErlRes<T, E> {
 }
 impl ToBytes for &RowTerm {
     fn to_bytes(self) -> Result<Vec<u8>> {
-        let raw = to_raw_term((*self).clone())?;
+        let raw: Result<RawTerm> = (*self).clone().into();
+        let raw: RawTerm = raw?;
         Ok(raw.to_bytes())
     }
 }
 impl ToBytes for RowTerm {
     fn to_bytes(self) -> Result<Vec<u8>> {
-        Ok(to_raw_term(self)?.to_bytes())
+        let raw: Result<RawTerm> = self.into();
+        let raw = raw?;
+        Ok(raw.to_bytes())
     }
 }
 impl ToBytes for Vec<&RowTerm> {
@@ -32,7 +36,9 @@ impl ToBytes for Vec<&RowTerm> {
             let raw = (*row).clone();
             rs.push(raw);
         }
-        Ok(to_raw_term(RowTerm::Tuple(rs))?.to_bytes())
+        let raw: Result<RawTerm> = RowTerm::Tuple(rs).into();
+        let raw = raw?;
+        Ok(raw.to_bytes())
     }
 }
 impl ToBytes for &[RowData] {
@@ -162,6 +168,28 @@ impl FromBytes for RowTerm {
         }
     }
 }
+impl From<RowTerm> for Result<RawTerm> {
+    fn from(row: RowTerm) -> Result<RawTerm> {
+        match row {
+            RowTerm::Integer(i) => Ok(big_int_to_raw_term(i)),
+            RowTerm::Atom(atom) => Ok(atom_to_raw_term(atom)),
+            RowTerm::Bitstring(str) => Ok(RawTerm::String(str.as_bytes().to_vec())),
+            RowTerm::Bin(bin) => Ok(RawTerm::Binary(bin)),
+            RowTerm::Tuple(tuple) => tuple_to_raw_term(tuple),
+            RowTerm::List(list) => list_to_raw_term(list),
+            RowTerm::Float(f) => Ok(RawTerm::Float(f)),
+            RowTerm::Map(map) => {
+                let mut rs: Vec<(RawTerm, RawTerm)> = Vec::new();
+                for (k, v) in map {
+                    let k: Result<RawTerm> = k.into();
+                    let v: Result<RawTerm> = v.into();
+                    rs.push((k.unwrap(), v.unwrap()));
+                }
+                Ok(RawTerm::Map(rs))
+            }
+        }
+    }
+}
 pub fn ok(row: RowTerm) -> Result<RawTerm> {
     to_raw_term(RowTerm::Tuple(vec![RowTerm::Atom("ok".into()), row]))
 }
@@ -266,19 +294,18 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
         RawTerm::Binary(bin) => Ok(RowTerm::Bin(bin)),
         RawTerm::Nil => Ok(RowTerm::List(vec![])),
         RawTerm::Float(f) => Ok(RowTerm::Float(f)),
+        RawTerm::Map(map) => {
+            let mut rs: Vec<(RowTerm, RowTerm)> = Vec::new();
+            for (k, v) in map {
+                rs.push((to_row_term(k)?, to_row_term(v)?));
+            }
+            Ok(RowTerm::Map(rs))
+        }
         other => Err(Error::msg(format!("RowTerm tuple invalid {:?}", other))),
     }
 }
 pub fn to_raw_term(row: RowTerm) -> Result<RawTerm> {
-    match row {
-        RowTerm::Integer(i) => Ok(big_int_to_raw_term(i)),
-        RowTerm::Atom(atom) => Ok(atom_to_raw_term(atom)),
-        RowTerm::Bitstring(str) => Ok(RawTerm::String(str.as_bytes().to_vec())),
-        RowTerm::Bin(bin) => Ok(RawTerm::Binary(bin)),
-        RowTerm::Tuple(tuple) => tuple_to_raw_term(tuple),
-        RowTerm::List(list) => list_to_raw_term(list),
-        RowTerm::Float(f) => Ok(RawTerm::Float(f)),
-    }
+    row.into()
 }
 pub fn list_to_raw_term(list: Vec<RowTerm>) -> Result<RawTerm> {
     if list.is_empty() {
