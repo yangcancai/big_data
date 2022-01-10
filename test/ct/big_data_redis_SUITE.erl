@@ -525,6 +525,7 @@ insert_binary(_) ->
      end
      || _ <- lists:seq(1, 100)],
     ok.
+
 integer(_) ->
     %% integer
     %% FIXME
@@ -540,40 +541,51 @@ integer(_) ->
     do_insert_check(?LINE, 9223372036854775807),
     %% FIXME
     %% do_insert_check(?LINE,9223372036854775808),
+    ok.
 
-ok.
 float(_) ->
-  %% float
+    %% float
     do_insert_check(?LINE, -0.0000000000000000001),
     do_insert_check(?LINE, -1.7976931348623157e308),
     do_insert_check(?LINE, 1.7976931348623158e308),
     do_insert_check(?LINE, 0.0),
     do_insert_check(?LINE, 1.0),
-     ok.
+    ok.
 
 atom(_) ->
     %% atom
     do_insert_check(?LINE, a),
     %% large atom
-    do_insert_check(?LINE, erlang:binary_to_atom(erlang:list_to_binary(string:copies("a", 100)),utf8)),
+    do_insert_check(?LINE,
+                    erlang:binary_to_atom(
+                        erlang:list_to_binary(
+                            string:copies("a", 100)),
+                        utf8)),
     ok.
+
 string(_) ->
     do_insert_check(?LINE, "a"),
     do_insert_check(?LINE, string:copies("a", 1000)),
     ok.
+
 binary(_) ->
     do_insert_check(?LINE, <<"a">>),
     do_insert_check(?LINE, <<"你好我是,中国人"/utf8>>),
     do_insert_check(?LINE, erlang:term_to_binary({})),
-    do_insert_check(?LINE, erlang:list_to_binary(string:copies("a", 1000))),
+    do_insert_check(?LINE,
+                    erlang:list_to_binary(
+                        string:copies("a", 1000))),
     do_insert_check(?LINE, {<<"a">>}),
     ok.
+
 list(_) ->
     do_insert_check(?LINE, [N || N <- lists:seq(1, 10000)]),
     ok.
+
 tuple(_) ->
     do_insert_check(?LINE, erlang:list_to_tuple([N || N <- lists:seq(1, 10000)])),
     ok.
+
 all_term(_) ->
     do_insert_check(?LINE, {}),
     do_insert_check(?LINE, {[]}),
@@ -614,6 +626,27 @@ overflow(_) ->
                  big_data_redis:update_counter(Ref, BigKey, RowID, {1, 9223372036854775807})),
     ?assertEqual([#row_data{row_id = RowID,
                             term = {a, 1},
+                            time = T}],
+                 big_data_redis:get(Ref, BigKey)),
+    ?assertEqual([true],
+                 big_data_redis:update_counter(Ref, BigKey, RowID, {1, 9223372036854775806})),
+    ?assertEqual([#row_data{row_id = RowID,
+                            term = {a, 9223372036854775807},
+                            time = T}],
+                 big_data_redis:get(Ref, BigKey)),
+
+    ?assertEqual([true],
+                 big_data_redis:update_counter(Ref, BigKey, RowID, {1, -9223372036854775808})),
+
+    ?assertEqual([#row_data{row_id = RowID,
+                            term = {a, -1},
+                            time = T}],
+                 big_data_redis:get(Ref, BigKey)),
+    ?assertEqual([false],
+                 big_data_redis:update_counter(Ref, BigKey, RowID, {1, -9223372036854775808})),
+
+    ?assertEqual([#row_data{row_id = RowID,
+                            term = {a, -1},
                             time = T}],
                  big_data_redis:get(Ref, BigKey)),
 
