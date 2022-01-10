@@ -27,7 +27,7 @@
 
 -include("big_data.hrl").
 
--export([new/0, insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
+-export([new/0, insert/3,insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
          get_row_ids/3, get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2,
          remove_row/3, remove_row_ids/4, clear/1, reload/2, command/1, row_id/1]).
 

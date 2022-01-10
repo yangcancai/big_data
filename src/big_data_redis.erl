@@ -33,7 +33,8 @@
 -export([command/1]).
 
 command(#bd_wal{action = Action, args = Args}) ->
-    apply(?MODULE, Action, [?BD_BIG_DATA_REF | Args]).
+    {ok, R} = new(),
+    apply(?MODULE, Action, [R | Args]).
 
 new() ->
     {ok, bd_store_redis:pid()}.

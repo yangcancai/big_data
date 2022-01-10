@@ -42,7 +42,7 @@
 
 %% API
 -export([start_link/1, i/0, stop/0, make_dir/1, wal_buffer/0, id_seq/0]).
--export([write/1, write_sync/1, delete_wal_buffer/3, process_all_action/2]).
+-export([write/1, write_sync/1, delete_wal_buffer/3]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
@@ -355,15 +355,20 @@ read_from_wal_file(Fd, Sz) ->
             exit({could_not_read_wal_chunk, Reason})
     end.
 
-process_all_action(Tid) ->
-    List = ets:tab2list(Tid),
-    process_all_action(?BD_BIG_DATA_REF, List).
-
 process_all_action(_, []) ->
     ok;
-process_all_action(Ref, [#bd_wal{action = Action, args = Args} | Rest]) ->
-    apply(big_data:backend(), Action, [Ref] ++ Args),
+process_all_action(Ref, [#bd_wal{ args = Args, action = Action} = Wal | Rest]) ->
+    case big_data:backend() of
+      big_data_redis ->
+        apply(big_data_redis, command, [Wal]);
+      _->
+        apply(big_data_local, Action, [ Ref | Args])
+    end,
     process_all_action(Ref, Rest).
+
+process_all_action(Tid) ->
+  List = ets:tab2list(Tid),
+      process_all_action(?BD_BIG_DATA_REF, List).
 
 delete_wal_buffer(Tid, CheckpointSeq, NewSeq) ->
     [ets:delete(Tid, Id) || Id <- lists:seq(CheckpointSeq, NewSeq)].

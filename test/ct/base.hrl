@@ -55,6 +55,13 @@ all() ->
      overflow].
 
 init_per_suite(Config) ->
+    B = case ?BACKEND of
+      big_data_redis ->
+        redis;
+      _->
+        local
+    end,
+    ok = application:set_env(big_data, big_data_backend, B),
     {ok, _} = application:ensure_all_started(?APP),
     new_meck(),
     Config.

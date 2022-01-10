@@ -54,5 +54,6 @@ command(#bd_wal{action = Action, args = _Args} = Wal)
 command(#bd_wal{action = _Action, args = _Args} = Wal) ->
     big_data_backend:command(Wal).
 
+-spec backend() -> big_data_redis | big_data_local.
 backend() ->
     big_data_backend:backend().

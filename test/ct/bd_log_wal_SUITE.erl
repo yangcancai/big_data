@@ -37,7 +37,7 @@ all() ->
 
 init_per_suite(Config) ->
     ok = application:load(?APP),
-    application:set_env(big_data, big_data_backend, local),
+    ok = application:set_env(big_data, big_data_backend, local),
     big_data:start(),
     new_meck(),
     Dir = "/tmp/big_data/test",
