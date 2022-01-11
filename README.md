@@ -325,7 +325,7 @@ ok
 ```
 
 ## Bench
-
+### cargo bench
 ```shell
 $ sh crates/build_crates.sh bench
     Finished bench [optimized] target(s) in 0.02s
@@ -343,6 +343,101 @@ test insert ... bench:       1,160 ns/iter (+/- 141)
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured
 ```
+### FlameGraph
+```shell
+# MacOS start dtrace to set probe
+$ ./flamegraph.sh
+dtrace: system integrity protection is on, some features will not be available
+
+dtrace: description 'profile-997 ' matched 1 probe
+# start redis-server
+$ redis-server --loadmodule target/debug/libredis_api.dylib
+42527:C 11 Jan 2022 17:24:07.942 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+42527:C 11 Jan 2022 17:24:07.942 # Redis version=6.2.6, bits=64, commit=00000000, modified=0, pid=42527, just started
+42527:C 11 Jan 2022 17:24:07.942 # Configuration loaded
+42527:M 11 Jan 2022 17:24:07.943 * Increased maximum number of open files to 10032 (it was originally set to 256).
+42527:M 11 Jan 2022 17:24:07.943 * monotonic clock: POSIX clock_gettime
+                _._
+           _.-``__ ''-._
+      _.-``    `.  `_.  ''-._           Redis 6.2.6 (00000000/0) 64 bit
+  .-`` .-```.  ```\/    _.,_ ''-._
+ (    '      ,       .-`  | `,    )     Running in standalone mode
+ |`-._`-...-` __...-.``-._|'` _.-'|     Port: 6379
+ |    `-._   `._    /     _.-'    |     PID: 42527
+  `-._    `-._  `-./  _.-'    _.-'
+ |`-._`-._    `-.__.-'    _.-'_.-'|
+ |    `-._`-._        _.-'_.-'    |           https://redis.io
+  `-._    `-._`-.__.-'_.-'    _.-'
+ |`-._`-._    `-.__.-'    _.-'_.-'|
+ |    `-._`-._        _.-'_.-'    |
+  `-._    `-._`-.__.-'_.-'    _.-'
+      `-._    `-.__.-'    _.-'
+          `-._        _.-'
+              `-.__.-'
+
+42527:M 11 Jan 2022 17:24:07.944 # Server initialized
+42527:M 11 Jan 2022 17:24:07.946 * <big_data> Created new data type 'big_data1'
+42527:M 11 Jan 2022 17:24:07.946 * Module 'big_data' loaded from target/debug/libredis_api.dylib
+
+# start big_data 
+```
+```erlang
+$ make shell
+./rebar3 as test shell
+===> Verifying dependencies...
+/Users/admin/proj/erlang/big_data/target
+   Compiling big_data v0.1.2 (/Users/admin/proj/erlang/big_data/crates/big_data)
+    Finished release [optimized] target(s) in 2.70s
+===> Analyzing applications...
+===> Compiling big_data
+Erlang/OTP 22 [erts-10.7.2.1] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
+
+Eshell V10.7.2.1  (abort with ^G)
+1> =INFO REPORT==== 11-Jan-2022::17:26:46.165809 ===
+Setup running ...
+=INFO REPORT==== 11-Jan-2022::17:26:46.175540 ===
+Directories verified. Res = ok
+=INFO REPORT==== 11-Jan-2022::17:26:46.175985 ===
+Setup finished processing hooks (Mode=normal)...
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.641428 ===
+Waiting wal recover...
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.641624 ===
+Recover: ..#{dir => "data",waiting_pid => <0.393.0>}
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.648339 ===
+CheckpointSeq = 0, id_seq = 0, walfiles = ["data/1_00000001.wal",
+                                           "data/1_00000002.wal"]
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.648581 ===
+Checkpoint sync timeout:600000
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.648733 ===
+Finish checkpoint id_seq = 0, checkpointseq = 0
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.660010 ===
+Notify recover finished, Pid = <0.393.0>
+=DEBUG REPORT==== 11-Jan-2022::17:26:46.660359 ===
+Wal recover finished, Recover total_time = 19 ms
+===> Booted recon
+===> Booted observer_cli
+===> Booted hut
+===> Booted setup
+===> Booted bear
+===> Booted folsom
+===> Booted syntax_tools
+===> Booted parse_trans
+===> Booted exometer_core
+===> Booted pa
+===> Booted quickrand
+===> Booted uuid
+===> Booted xmerl
+===> Booted jiffy
+===> Booted flatlog
+===> Booted cool_tools
+===> Booted big_data
+1>bd_bench:run(500,500).
+......
+Bech done pid = <0.857.0>
+Overview = #{aver => 20,sum_time => 1488897303,total_command => 72868,
+             total_time => 4684,tps => 18217}
+```
+![FlameGraph](pretty-graph.svg)
 
 ## Reference
 * [redismodule-rs](https://github.com/RedisLabsModules/redismodule-rs.git)
