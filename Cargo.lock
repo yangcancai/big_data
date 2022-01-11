@@ -192,7 +192,7 @@ dependencies = [
  "erlang-term",
  "nom 7.1.0",
  "num-bigint",
- "num-traits 0.2.14",
+ "num-traits 0.1.43",
  "ordermap",
  "rustler",
 ]
@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "erlang-term"
 version = "0.2.0"
-source = "git+https://github.com/yangcancai/erlang-term.git?branch=master#4bc82e8c53aa938a9d4be8df0b2e640b2b33d246"
+source = "git+https://github.com/yangcancai/erlang-term.git?branch=master#31bf14172c8c426e5a172f2caf041c2d9b948fc4"
 dependencies = [
  "keylist",
  "nom 6.1.2",
