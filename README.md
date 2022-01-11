@@ -344,13 +344,16 @@ test insert ... bench:       1,160 ns/iter (+/- 141)
 test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured
 ```
 ### FlameGraph
+
+#### MacOS start dtrace to set probe
 ```shell
-# MacOS start dtrace to set probe
 $ ./flamegraph.sh
 dtrace: system integrity protection is on, some features will not be available
 
 dtrace: description 'profile-997 ' matched 1 probe
-# start redis-server
+```
+#### Start redis-server
+```shell
 $ redis-server --loadmodule target/debug/libredis_api.dylib
 42527:C 11 Jan 2022 17:24:07.942 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
 42527:C 11 Jan 2022 17:24:07.942 # Redis version=6.2.6, bits=64, commit=00000000, modified=0, pid=42527, just started
@@ -378,10 +381,9 @@ $ redis-server --loadmodule target/debug/libredis_api.dylib
 42527:M 11 Jan 2022 17:24:07.944 # Server initialized
 42527:M 11 Jan 2022 17:24:07.946 * <big_data> Created new data type 'big_data1'
 42527:M 11 Jan 2022 17:24:07.946 * Module 'big_data' loaded from target/debug/libredis_api.dylib
-
-# start big_data 
 ```
-```erlang
+#### Start big_data erlang client
+```shell
 $ make shell
 ./rebar3 as test shell
 ===> Verifying dependencies...
