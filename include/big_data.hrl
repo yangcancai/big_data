@@ -24,13 +24,28 @@
 -ifndef(H_big_data_nif).
 
 %% logging shim
+-ifndef(DEBUG).
 -define(DEBUG(Fmt, Args), ?DISPATCH_LOG(debug, Fmt, Args)).
+-endif.
+-ifndef(INFO).
 -define(INFO(Fmt, Args), ?DISPATCH_LOG(info, Fmt, Args)).
+-endif.
+-ifndef(NOTICE).
 -define(NOTICE(Fmt, Args), ?DISPATCH_LOG(notice, Fmt, Args)).
+-endif.
+-ifndef(WARN).
 -define(WARN(Fmt, Args), ?DISPATCH_LOG(warning, Fmt, Args)).
+-endif.
+-ifndef(WARNING).
 -define(WARNING(Fmt, Args), ?DISPATCH_LOG(warning, Fmt, Args)).
+-endif.
+-ifndef(ERR).
 -define(ERR(Fmt, Args), ?DISPATCH_LOG(error, Fmt, Args)).
+-endif.
+-ifndef(ERROR).
 -define(ERROR(Fmt, Args), ?DISPATCH_LOG(error, Fmt, Args)).
+-endif.
+-ifndef(DISPATCH_LOG).
 -define(DISPATCH_LOG(Level, Fmt, Args),
         %% same as OTP logger does when using the macro
         (persistent_term:get('$bd_logger')):log(Level,
@@ -40,6 +55,7 @@
                                                   file => ?FILE,
                                                   line => ?LINE}),
         ok).
+-endif.
 -define(H_big_data_nif, true).
 -define(SYNC_INTERVAL, 5000).
 -define(BD_LOG_META, bd_log_meta).
