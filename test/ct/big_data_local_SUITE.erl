@@ -28,3 +28,5 @@ backend() ->
     big_data_local.
 
 -include("base.hrl").
+pid(_) ->
+    ok.

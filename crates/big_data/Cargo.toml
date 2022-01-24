@@ -16,7 +16,7 @@ crate-type = ["cdylib","rlib"]
 name = "bench"
 harness = false
 [dependencies]
-core = {path = "./core"}
+core = {path = "./core", features = ["nif"]}
 rustler = "0.22.2"
 serde = { version = "1.0", features = ["derive"] }
 bencher = "0.1.5"

@@ -42,7 +42,7 @@
 
 %% API
 -export([start_link/1, i/0, stop/0, make_dir/1, wal_buffer/0, id_seq/0]).
--export([write/1, write_sync/1, delete_wal_buffer/3]).
+-export([write/1, write_sync/1, delete_wal_buffer/3, process_all_action/2]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).

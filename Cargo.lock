@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "erlang-term"
 version = "0.2.0"
-source = "git+https://github.com/yangcancai/erlang-term.git?branch=master#31bf14172c8c426e5a172f2caf041c2d9b948fc4"
+source = "git+https://github.com/yangcancai/erlang-term.git?branch=master#9879faa635cfe49bccb3c992c7c13042756bcb04"
 dependencies = [
  "keylist",
  "nom 6.1.2",

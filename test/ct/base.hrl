@@ -52,7 +52,8 @@ all() ->
      list,
      binary,
      map,
-     overflow].
+     overflow,
+     pid].
 
 init_per_suite(Config) ->
     B = case ?BACKEND of

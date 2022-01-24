@@ -27,3 +27,6 @@ backend() ->
     big_data_redis.
 
 -include("base.hrl").
+pid(_) ->
+    do_insert_check(?LINE, self()),
+    ok.

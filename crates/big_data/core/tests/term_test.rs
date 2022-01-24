@@ -146,3 +146,10 @@ fn term() {
     let row = Vec::<RowData>::from_bytes(bin);
     assert_eq!(true, row.is_ok());
 }
+#[test]
+fn pid(){
+    let bin = &[131,88,100,0,13,110,111,110,111,100,101,64,110,111,104,
+    111,115,116,0,0,0,79,0,0,0,0,0,0,0,0];
+    let row = RowTerm::from_bytes(bin);
+    assert_eq!(true, row.is_ok());
+}
