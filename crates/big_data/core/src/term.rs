@@ -61,7 +61,7 @@ impl ToBytes for ErlRes<RowTerm, RowTerm> {
             }
             ErlRes::ErrString(e) => Ok(to_raw_term(RowTerm::Tuple(vec![
                 RowTerm::Atom("error".into()),
-                RowTerm::Atom(e),
+                RowTerm::Bitstring(e),
             ]))?
             .to_bytes()),
         }

@@ -30,3 +30,4 @@ backend() ->
 -include("base.hrl").
 pid(_) ->
     ok.
+func(_) -> ok.

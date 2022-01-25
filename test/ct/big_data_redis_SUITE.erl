@@ -30,3 +30,9 @@ backend() ->
 pid(_) ->
     do_insert_check(?LINE, self()),
     ok.
+func(_) ->
+    do_insert_check(?LINE, fun() -> ok end),
+    ok.
+ref(_) ->
+    do_insert_check(?LINE, erlang:make_ref()),
+    ok.

@@ -196,7 +196,9 @@ fn big_data_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         }
         Err(e) => {
             ctx.log_debug(format!("Error: {:?}", e).as_str());
-            error(format!("ERR {:?}", e))
+            let rs = error(format!("ERR {:?}", e));
+            println!("bin={:?}", binary);
+            rs
         }
     }
 }

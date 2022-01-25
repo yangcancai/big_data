@@ -50,12 +50,15 @@ insert(Ref, BigKey, R) ->
                 ok.
 insert(Ref, BigKey, RowID, Time, Term)
     when is_binary(BigKey), is_binary(RowID), is_integer(Time) ->
+  TermBin = erlang:term_to_binary(#row_data{row_id = RowID,
+    time = Time,
+    term = Term}),
+    error_logger:info_msg("insert = ~p ~p",[Term,TermBin]),
     bd_store_redis:term_cmd(Ref,
                             ["big_data.set",
                              BigKey,
-                             erlang:term_to_binary(#row_data{row_id = RowID,
-                                                             time = Time,
-                                                             term = Term})]).
+                              TermBin
+                             ]).
 
 -spec update_elem(Ref :: big_data(),
                   BigKey :: big_key(),
