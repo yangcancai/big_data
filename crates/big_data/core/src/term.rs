@@ -186,13 +186,12 @@ impl From<RowTerm> for Result<RawTerm> {
                     rs.push((k.unwrap(), v.unwrap()));
                 }
                 Ok(RawTerm::Map(rs))
-            },
-            RowTerm::Other(other) =>{
-                Ok(other)
             }
+            RowTerm::Other(other) => Ok(other),
         }
     }
 }
+
 pub fn ok(row: RowTerm) -> Result<RawTerm> {
     to_raw_term(RowTerm::Tuple(vec![RowTerm::Atom("ok".into()), row]))
 }
@@ -303,7 +302,7 @@ fn to_row_term(raw: RawTerm) -> Result<RowTerm> {
                 rs.push((to_row_term(k)?, to_row_term(v)?));
             }
             Ok(RowTerm::Map(rs))
-        },
+        }
         other => {
             Ok(RowTerm::Other(other))
             // Err(Error::msg(format!("RowTerm tuple invalid {:?}", other)))
