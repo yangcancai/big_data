@@ -549,42 +549,10 @@ fn append() {
         ]),])]
     );
 }
+
 #[test]
 fn append_replace_cond() {
     let mut big_data = BigData::new();
-    fn get_term(str: &str) -> RowTerm {
-        RowTerm::Tuple(vec![
-            RowTerm::Integer(0),
-            RowTerm::List(vec![RowTerm::Tuple(vec![
-                RowTerm::Atom(str.into()),
-                RowTerm::Integer(3),
-            ])]),
-        ])
-    }
-    fn get_term_key(str: &str, key: i64) -> RowTerm {
-        RowTerm::Tuple(vec![
-            RowTerm::Integer(0),
-            RowTerm::List(vec![RowTerm::Tuple(vec![
-                RowTerm::Atom(str.into()),
-                RowTerm::Integer(key),
-            ])]),
-        ])
-    }
-    fn add_new_elem(f: fn() -> RowTerm, add: fn() -> RowTerm) -> RowTerm {
-        let mut rs = vec![];
-        if let RowTerm::Tuple(list) = f() {
-            let mut temp = list.clone();
-            rs.append(&mut temp);
-            rs.push(add());
-            RowTerm::Tuple(rs)
-        } else {
-            add()
-        }
-    }
-
-    fn get_rowdata(f: fn() -> RowTerm) -> RowData {
-        RowData::new("1", f(), 10)
-    }
     let option = RowTerm::List(vec![
         // pos = 0
         RowTerm::Tuple(vec![
@@ -634,4 +602,94 @@ fn append_replace_cond() {
     );
     let rs = big_data.lookup_elem("1", RowTerm::Integer(2));
     assert_eq!(rs, vec![&RowTerm::Integer(100)]);
+}
+#[test]
+fn only_update_location() {
+    let mut big_data = BigData::new();
+    let option = RowTerm::List(vec![
+        // feature: update location
+        RowTerm::Atom("location".into()),
+        // pos = 0
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("update".into()),
+                RowTerm::Atom("gt".into()),
+            ])]),
+        ]),
+    ]);
+    let _ = big_data.append(get_rowdata(|| get_term("a")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term("b")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term_location("c", 30)), &option);
+
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("a".into()),
+            RowTerm::Integer(3),
+        ]),])]
+    );
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(0));
+    assert_eq!(rs, vec![&RowTerm::Integer(30)]);
+    let _ = big_data.append(
+        get_rowdata(|| add_new_elem(|| get_term_location("e", 50), || RowTerm::Integer(90))),
+        &option,
+    );
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(2));
+    assert_eq!(rs, vec![&RowTerm::Integer(90)]);
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(0));
+    assert_eq!(rs, vec![&RowTerm::Integer(50)]);
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("a".into()),
+            RowTerm::Integer(3),
+        ]),])]
+    );
+}
+
+// =======
+// construction functions for test
+fn get_term(str: &str) -> RowTerm {
+    RowTerm::Tuple(vec![
+        RowTerm::Integer(0),
+        RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom(str.into()),
+            RowTerm::Integer(3),
+        ])]),
+    ])
+}
+fn get_term_key(str: &str, key: i64) -> RowTerm {
+    RowTerm::Tuple(vec![
+        RowTerm::Integer(0),
+        RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom(str.into()),
+            RowTerm::Integer(key),
+        ])]),
+    ])
+}
+fn get_term_location(str: &str, location: i64) -> RowTerm {
+    RowTerm::Tuple(vec![
+        RowTerm::Integer(location),
+        RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom(str.into()),
+            RowTerm::Integer(3),
+        ])]),
+    ])
+}
+fn add_new_elem(f: fn() -> RowTerm, add: fn() -> RowTerm) -> RowTerm {
+    let mut rs = vec![];
+    if let RowTerm::Tuple(list) = f() {
+        let mut temp = list.clone();
+        rs.append(&mut temp);
+        rs.push(add());
+        RowTerm::Tuple(rs)
+    } else {
+        add()
+    }
+}
+fn get_rowdata(f: fn() -> RowTerm) -> RowData {
+    RowData::new("1", f(), 10)
 }

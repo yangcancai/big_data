@@ -256,7 +256,7 @@ fn big_data_append(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let binary: &[u8] = two.as_slice();
     let decoded = Vec::<RowData>::from_bytes(binary);
     let option = RowTerm::from_bytes(option);
-    match (decoded,option) {
+    match (decoded, option) {
         (Ok(row_data), Ok(row_option)) => {
             let key = ctx.open_key_writable(&key);
             match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
@@ -273,19 +273,18 @@ fn big_data_append(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             ctx.replicate_verbatim();
             to_redis_res_ok()
         }
-        (Err(e),_) => {
-            ctx.log_debug(format!("Error: {:?}", e).as_str());
-            let rs = error(format!("ERR {:?}", e));
-            println!("bin={:?}", binary);
-            rs
-        },
-        (_,Err(e)) => {
+        (Err(e), _) => {
             ctx.log_debug(format!("Error: {:?}", e).as_str());
             let rs = error(format!("ERR {:?}", e));
             println!("bin={:?}", binary);
             rs
         }
-
+        (_, Err(e)) => {
+            ctx.log_debug(format!("Error: {:?}", e).as_str());
+            let rs = error(format!("ERR {:?}", e));
+            println!("bin={:?}", binary);
+            rs
+        }
     }
 }
 /// Read begin here
