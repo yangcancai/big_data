@@ -43,10 +43,10 @@ impl NifBigData {
     }
     fn append(&mut self, big_key: &str, row_data: RowData, option: RowTerm) {
         if let Some(big_data) = self.data.get_mut(big_key) {
-            let _= big_data.append(row_data, &option);
+            let _ = big_data.append(row_data, &option);
         } else {
             let mut big_data = BigData::new();
-            let _= big_data.append(row_data, &option);
+            let _ = big_data.append(row_data, &option);
             self.data.insert(big_key.to_string(), big_data);
         }
     }

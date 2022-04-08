@@ -50,7 +50,7 @@ impl From<RowTerm> for RowOption {
                             }
                             _ => {}
                         }
-                    } 
+                    }
                 }
             }
         }
@@ -181,9 +181,9 @@ impl BigData {
             options: HashMap::new(),
         }
     }
-    pub fn append_list(&mut self, row_data_list: Vec<RowData>, option: &RowTerm){
-        for row_data in row_data_list{
-            let _= self.append(row_data, option);
+    pub fn append_list(&mut self, row_data_list: Vec<RowData>, option: &RowTerm) {
+        for row_data in row_data_list {
+            let _ = self.append(row_data, option);
         }
     }
     /// Append RowData to the BigData
@@ -242,6 +242,9 @@ impl BigData {
     fn process_append(rs: &mut RowData, new: &RowData, option: &RowTerm) -> R<()> {
         // Supported options
         let mut filter = HashMap::new();
+        // Default update all position
+        // Only update location where it is set
+        let mut only_update_location = false;
         match option {
             RowTerm::List(option) => {
                 // [{pos,option}]
@@ -266,6 +269,11 @@ impl BigData {
                             BigData::process_append_max_len(rs, new, pos, &option);
                             filter.insert(pos, 1);
                         }
+                        RowTerm::Atom(location) => {
+                            if let "location" = location.as_str() {
+                                only_update_location = true;
+                            }
+                        }
                         _ => return Err(Error::msg("Append option format error")),
                     }
                 }
@@ -273,14 +281,18 @@ impl BigData {
             _ => return Err(Error::msg("Append option format error")),
         }
         if let (RowTerm::Tuple(inner), RowTerm::Tuple(other)) = (&mut rs.term, &new.term) {
-            for i in 0..other.len() {
-                // the pos option not included
-                if filter.get(&i).is_none() {
-                    if inner.len() > i {
-                        inner[i] = other[i].clone();
-                    } else {
-                        // new elem append
-                        inner.push(other[i].clone());
+            if !only_update_location || other.len() > inner.len() {
+                for i in 0..other.len() {
+                    // the pos option not included
+                    if filter.get(&i).is_none() {
+                        if inner.len() > i {
+                            if !only_update_location {
+                                inner[i] = other[i].clone();
+                            }
+                        } else {
+                            // new elem append
+                            inner.push(other[i].clone());
+                        }
                     }
                 }
             }

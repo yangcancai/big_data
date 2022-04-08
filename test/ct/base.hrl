@@ -658,6 +658,31 @@ append(_) ->
     do_append_check(?LINE, {0,[{1,a,b},{2,c,"你好"}]}, {1,[{2,c,"不好"},{3,e,f}], "new"},
      {1,[{2,c,"不好"},{3,e,f}], "new"}, [{0,[{update, gt}]}, {1, [{type, list},{max_len,2},{replace_cond,0}]}]),
     ok.
+only_update_location(_) ->
+    do_append_check(?LINE,
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    {1, [{2, c, "不好"}, {3, e, f}], "new"},
+                    {0, [{2, c, "不好"}, {3, e, f}], "new"},
+                    [location, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+    do_append_check(?LINE,
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    {1, [{2, c, "不好"}, {3, e, f}]},
+                    {0, [{2, c, "不好"}, {3, e, f}]},
+                    [location, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+    do_append_check(?LINE,
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    {1, {2, c, "不好"}},
+                    {0, [{1, a, b}, {2, c, "不好"}]},
+                    [location, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+
+    do_append_check(?LINE,
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    {1},
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    [location, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+
+    ok.
+
 do_append_check(Line, OldTerm, NewTerm, ExpectTerm, Option) ->
     {ok, Ref} = ?BACKEND:new(),
     BigKey = uid(),
