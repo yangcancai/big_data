@@ -3,7 +3,7 @@
 %% API
 -export([new/0, new/1, insert/3, insert_new/3, get_row/3, get/2, big_key_list/1,
          get_range/4, get_range_row_ids/4, get_row_ids/3, get_time_index/3, lookup_elem/4, clear/1,
-         remove/2, remove_row/3, remove_row_ids/4, update_elem/4, update_counter/4]).
+         remove/2, remove_row/3, remove_row_ids/4, update_elem/4, update_counter/4, append/4]).
 %% Native library support
 -export([load/0]).
 
@@ -109,7 +109,8 @@ remove_row(_Ref, _BigKey, _RowID) ->
                         ok.
 remove_row_ids(_Ref, _BigKey, _StartTime, _EndTime) ->
     not_loaded(?LINE).
-
+append(_Ref, _BigKey, _RowData, _Option) ->
+    not_loaded(?LINE).
 %% @private
 load() ->
     erlang:load_nif(

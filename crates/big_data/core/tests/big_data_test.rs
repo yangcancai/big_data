@@ -1,6 +1,7 @@
 extern crate core;
 use core::big_data::BigData;
 use core::big_data::RowData;
+use core::big_data::RowOption;
 use core::big_data::RowTerm;
 #[test]
 fn insert() {
@@ -422,4 +423,215 @@ fn lookup_elem() {
     big_data.insert(d.clone());
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Integer(1)]);
+}
+
+#[test]
+fn rowterm2rowoption() {
+    let option = RowTerm::List(vec![RowTerm::Tuple(vec![
+        RowTerm::Atom("update".into()),
+        RowTerm::Atom("lt".into()),
+    ])]);
+    let row_option: RowOption = option.into();
+    assert_eq!(row_option.update, Some("lt".into()));
+    let option = RowTerm::List(vec![
+        RowTerm::Tuple(vec![
+            RowTerm::Atom("update".into()),
+            RowTerm::Atom("lt".into()),
+        ]),
+        RowTerm::Tuple(vec![
+            RowTerm::Atom("type".into()),
+            RowTerm::Atom("list".into()),
+        ]),
+        RowTerm::Tuple(vec![RowTerm::Atom("max_len".into()), RowTerm::Integer(10)]),
+        RowTerm::Tuple(vec![
+            RowTerm::Atom("replace_cond".into()),
+            RowTerm::Integer(1),
+        ]),
+    ]);
+    let row_option: RowOption = option.into();
+    assert_eq!(row_option.update, Some("lt".into()));
+    assert_eq!(row_option.max_len, Some(10));
+    assert_eq!(row_option.t, Some("list".into()));
+    assert_eq!(row_option.replace_cond, Some(1));
+}
+#[test]
+fn append() {
+    // term is equal integer
+    let mut big_data = BigData::new();
+    let d = RowData::new("1", RowTerm::Integer(1), 10);
+    let option = RowTerm::List(vec![RowTerm::Tuple(vec![
+        RowTerm::Integer(0),
+        RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("update".into()),
+            RowTerm::Atom("lt".into()),
+        ])]),
+    ])]);
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
+    assert_eq!(rs, vec![&RowTerm::Integer(1)]);
+    let d = RowData::new("1", RowTerm::Integer(0), 10);
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
+    assert_eq!(rs, vec![&RowTerm::Integer(0)]);
+    // term is equal float
+    let mut big_data = BigData::new();
+    let d = RowData::new("1", RowTerm::Float(1.0), 10);
+    let option = RowTerm::List(vec![RowTerm::Tuple(vec![
+        RowTerm::Integer(0),
+        RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("update".into()),
+            RowTerm::Atom("lt".into()),
+        ])]),
+    ])]);
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
+    assert_eq!(rs, vec![&RowTerm::Float(1.0)]);
+    let d = RowData::new("1", RowTerm::Float(0.0), 10);
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
+    assert_eq!(rs, vec![&RowTerm::Float(0.0)]);
+    // term is equal tuple
+    let mut big_data = BigData::new();
+    // term = {0, [{a, 3}]}
+    let d = RowData::new(
+        "1",
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("a".into()),
+                RowTerm::Integer(3),
+            ])]),
+        ]),
+        10,
+    );
+    let option = RowTerm::List(vec![
+        // pos = 0
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("update".into()),
+                RowTerm::Atom("gt".into()),
+            ])]),
+        ]),
+        // pos = 1
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(1),
+            RowTerm::List(vec![
+                RowTerm::Tuple(vec![RowTerm::Atom("max_len".into()), RowTerm::Integer(1)]),
+                RowTerm::Tuple(vec![
+                    RowTerm::Atom("type".into()),
+                    RowTerm::Atom("list".into()),
+                ]),
+            ]),
+        ]),
+    ]);
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
+    assert_eq!(rs, vec![&RowTerm::Integer(0)]);
+    let d = RowData::new(
+        "1",
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![
+                RowTerm::Tuple(vec![RowTerm::Atom("b".into()), RowTerm::Integer(4)]),
+                RowTerm::Tuple(vec![RowTerm::Atom("c".into()), RowTerm::Integer(5)]),
+            ]),
+        ]),
+        10,
+    );
+    let _ = big_data.append(d.clone(), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("c".into()),
+            RowTerm::Integer(5),
+        ]),])]
+    );
+}
+#[test]
+fn append_replace_cond() {
+    let mut big_data = BigData::new();
+    fn get_term(str: &str) -> RowTerm {
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom(str.into()),
+                RowTerm::Integer(3),
+            ])]),
+        ])
+    }
+    fn get_term_key(str: &str, key: i64) -> RowTerm {
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom(str.into()),
+                RowTerm::Integer(key),
+            ])]),
+        ])
+    }
+    fn add_new_elem(f: fn() -> RowTerm, add: fn() -> RowTerm) -> RowTerm {
+        let mut rs = vec![];
+        if let RowTerm::Tuple(list) = f() {
+            let mut temp = list.clone();
+            rs.append(&mut temp);
+            rs.push(add());
+            RowTerm::Tuple(rs)
+        } else {
+            add()
+        }
+    }
+
+    fn get_rowdata(f: fn() -> RowTerm) -> RowData {
+        RowData::new("1", f(), 10)
+    }
+    let option = RowTerm::List(vec![
+        // pos = 0
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(0),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("update".into()),
+                RowTerm::Atom("gt".into()),
+            ])]),
+        ]),
+        // pos = 1
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(1),
+            RowTerm::List(vec![
+                RowTerm::Tuple(vec![
+                    RowTerm::Atom("replace_cond".into()),
+                    RowTerm::Integer(1),
+                ]),
+                RowTerm::Tuple(vec![RowTerm::Atom("max_len".into()), RowTerm::Integer(10)]),
+                RowTerm::Tuple(vec![
+                    RowTerm::Atom("type".into()),
+                    RowTerm::Atom("list".into()),
+                ]),
+            ]),
+        ]),
+    ]);
+    let _ = big_data.append(get_rowdata(|| get_term("a")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term("b")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term_key("c", 4)), &option);
+    let _ = big_data.append(
+        get_rowdata(|| add_new_elem(|| get_term_key("e", 5), || RowTerm::Integer(90))),
+        &option,
+    );
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![
+            RowTerm::Tuple(vec![RowTerm::Atom("b".into()), RowTerm::Integer(3),]),
+            RowTerm::Tuple(vec![RowTerm::Atom("c".into()), RowTerm::Integer(4),]),
+            RowTerm::Tuple(vec![RowTerm::Atom("e".into()), RowTerm::Integer(5),]),
+        ])]
+    );
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(2));
+    assert_eq!(rs, vec![&RowTerm::Integer(90)]);
+    let _ = big_data.append(
+        get_rowdata(|| add_new_elem(|| get_term_key("e", 5), || RowTerm::Integer(100))),
+        &option,
+    );
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(2));
+    assert_eq!(rs, vec![&RowTerm::Integer(100)]);
 }

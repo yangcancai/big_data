@@ -8,7 +8,11 @@ export PROFILE=release
 co:compile
 compile:
 	./rebar3 compile
-
+redis_api:
+    ## debug
+	cargo build -p redis_api
+	## release
+	cargo build -p redis_api --release
 es:escriptize
 escriptize: clean
 	./rebar3 escriptize

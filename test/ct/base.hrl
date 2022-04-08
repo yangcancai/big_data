@@ -36,6 +36,7 @@ all() ->
      remove,
      remove_row,
      remove_row_ids,
+     append,
      clear,
      range,
      get_time_index,
@@ -54,7 +55,7 @@ all() ->
      map,
      overflow,
      pid,
-      func].
+     func].
 
 init_per_suite(Config) ->
     B = case ?BACKEND of
@@ -653,3 +654,29 @@ overflow(_) ->
 uid() ->
     base64:encode(
         crypto:strong_rand_bytes(32)).
+append(_) ->
+    do_append_check(?LINE, {0,[{1,a,b},{2,c,"你好"}]}, {1,[{2,c,"不好"},{3,e,f}], "new"},
+     {1,[{2,c,"不好"},{3,e,f}], "new"}, [{0,[{update, gt}]}, {1, [{type, list},{max_len,2},{replace_cond,0}]}]),
+    ok.
+do_append_check(Line, OldTerm, NewTerm, ExpectTerm, Option) ->
+    {ok, Ref} = ?BACKEND:new(),
+    BigKey = uid(),
+    RowID = uid(),
+    T = erlang:system_time(1),
+    ok = ?BACKEND:append(Ref, BigKey, #row_data{row_id=RowID, time=T,term=OldTerm}, []),
+    ?assertEqual({Line,
+                  [#row_data{row_id = RowID,
+                             term = OldTerm,
+                             time = T}]},
+                 {Line, ?BACKEND:get(Ref, BigKey)}),
+
+    ok = ?BACKEND:append(Ref, BigKey, #row_data{row_id=RowID, time=T,term=NewTerm}, Option),
+    ?assertEqual({Line,
+                  [#row_data{row_id = RowID,
+                             term = ExpectTerm,
+                             time = T}]},
+                 {Line, ?BACKEND:get(Ref, BigKey)}),
+
+    ok = ?BACKEND:remove(Ref, BigKey),
+    ok.
+

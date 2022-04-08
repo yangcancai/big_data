@@ -41,6 +41,15 @@ impl NifBigData {
             self.data.insert(big_key.to_string(), big_data);
         }
     }
+    fn append(&mut self, big_key: &str, row_data: RowData, option: RowTerm) {
+        if let Some(big_data) = self.data.get_mut(big_key) {
+            let _= big_data.append(row_data, &option);
+        } else {
+            let mut big_data = BigData::new();
+            let _= big_data.append(row_data, &option);
+            self.data.insert(big_key.to_string(), big_data);
+        }
+    }
     fn update_elem(
         &mut self,
         big_key: &str,
@@ -169,6 +178,18 @@ fn insert<'a>(
 ) -> NifResult<Term<'a>> {
     let mut write = resource.write();
     write.insert(u8_to_string(&big_key).as_ref(), row_data);
+    Ok(ok().encode(env))
+}
+#[rustler::nif]
+fn append<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<NifBigDataResource>,
+    big_key: LazyBinary<'a>,
+    row_data: RowData,
+    option: RowTerm,
+) -> NifResult<Term<'a>> {
+    let mut write = resource.write();
+    write.append(u8_to_string(&big_key).as_ref(), row_data, option);
     Ok(ok().encode(env))
 }
 

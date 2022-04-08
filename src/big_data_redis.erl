@@ -29,7 +29,7 @@
 
 -export([new/0, insert/3, insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
          get_row_ids/3, get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2,
-         remove_row/3, remove_row_ids/4, row_id/1]).
+         remove_row/3, remove_row_ids/4, row_id/1, append/4]).
 -export([command/1]).
 
 command(#bd_wal{action = Action, args = Args}) ->
@@ -53,7 +53,6 @@ insert(Ref, BigKey, RowID, Time, Term)
   TermBin = erlang:term_to_binary(#row_data{row_id = RowID,
     time = Time,
     term = Term}),
-    error_logger:info_msg("insert = ~p ~p",[Term,TermBin]),
     bd_store_redis:term_cmd(Ref,
                             ["big_data.set",
                              BigKey,
@@ -149,6 +148,10 @@ remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
 remove_row_ids(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
     bd_store_redis:term_cmd(Ref, ["big_data.remove_row_ids", BigKey, StartTime, EndTime]).
+
+-spec append(Ref :: big_data(), BigKey :: big_key(), #row_data{}, Option :: options() ) -> ok.
+append(Ref, BigKey, #row_data{} = R, Option) ->
+    bd_store_redis:term_cmd(Ref, ["big_data.append", BigKey, erlang:term_to_binary(R), erlang:term_to_binary(Option)]).
 
 row_id(RowID) when is_integer(RowID) ->
     erlang:integer_to_binary(RowID);

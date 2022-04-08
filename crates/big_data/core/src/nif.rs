@@ -15,12 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-   
+
 // @doc
 //
 // @end
 // Created : 2022-01-24T03:22:39+00:00
 //-------------------------------------------------------------------
+use super::atoms;
+use crate::big_data::RowData;
+use crate::big_data::RowTerm;
+use crate::big_data::Time;
 use rustler::dynamic::get_type;
 use rustler::error::Error;
 use rustler::types::atom::Atom;
@@ -34,12 +38,8 @@ use rustler::Env;
 use rustler::MapIterator;
 use rustler::NifResult;
 use rustler::Term;
-use std::io::Write;
 use std::convert::TryFrom;
-use crate::big_data::RowTerm;
-use crate::big_data::RowData;
-use crate::big_data::Time;
-use super::atoms;
+use std::io::Write;
 impl Encoder for RowTerm {
     fn encode<'a>(&self, env: Env<'a>) -> Term<'a> {
         match self {
@@ -66,14 +66,13 @@ impl Encoder for RowTerm {
                     rs.unwrap()
                 });
                 rs.encode(env)
-            }
-            // RowTerm::Other(term) => {
-            //        *term
-            //     }
+            } // RowTerm::Other(term) => {
+              //        *term
+              //     }
         }
     }
 }
-impl <'a>Decoder<'a> for RowTerm {
+impl<'a> Decoder<'a> for RowTerm {
     fn decode(term: Term<'a>) -> NifResult<Self> {
         if let Some(v) = convert_to_row_term(&term) {
             Ok(v)
@@ -102,7 +101,7 @@ impl<'a> Decoder<'a> for Time {
         }
     }
 }
-impl <'a>Decoder<'a> for RowData{
+impl<'a> Decoder<'a> for RowData {
     fn decode(term: Term<'a>) -> NifResult<Self> {
         if let Some(RowTerm::Tuple(tuple)) = convert_to_row_term(&term) {
             if tuple.len() == 4
@@ -128,7 +127,6 @@ impl <'a>Decoder<'a> for RowData{
         Err(Error::BadArg)
     }
 }
-
 
 pub fn convert_to_integer(term: &Term) -> Option<u128> {
     if term.is_number() {
