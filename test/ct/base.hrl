@@ -680,6 +680,13 @@ only_update_location(_) ->
                     {1},
                     {0, [{1, a, b}, {2, c, "你好"}]},
                     [location, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+    %% update always
+    do_append_check(?LINE,
+                    {0, [{1, a, b}, {2, c, "你好"}]},
+                    {1},
+                    {1, [{1, a, b}, {2, c, "你好"}]},
+                    [location, {0, [{update, always}]}, {1, [{type, list}, {max_len, 2}, {replace_cond, 0}]}]),
+
 
     ok.
 
