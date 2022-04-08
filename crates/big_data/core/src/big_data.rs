@@ -383,12 +383,19 @@ impl BigData {
                         tuple[pos] = new_tuple[pos].clone();
                     }
                 }
+                (RowTerm::Tuple(tuple), RowTerm::Tuple(new_tuple), "always") => {
+                    if new_tuple.len() > pos && tuple.len() > pos {
+                        tuple[pos] = new_tuple[pos].clone();
+                    }
+                }
+                (a, b, "always") => {
+                    *a = b.clone();
+                }
                 (a, b, "gt") => {
                     if b > a {
                         *a = b.clone();
                     }
                 }
-
                 (a, b, "lt") => {
                     if b < a {
                         *a = b.clone();

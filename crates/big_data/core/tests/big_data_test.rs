@@ -649,7 +649,32 @@ fn only_update_location() {
         ]),])]
     );
 }
-
+#[test]
+fn update_always() {
+    let mut big_data = BigData::new();
+    let option = RowTerm::List(vec![
+        // feature: update location
+        RowTerm::Atom("location".into()),
+        // pos = 1
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(1),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("update".into()),
+                RowTerm::Atom("always".into()),
+            ])]),
+        ]),
+    ]);
+    let _ = big_data.append(get_rowdata(|| get_term("a")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term("b")), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("b".into()),
+            RowTerm::Integer(3),
+        ]),])]
+    );
+}
 // =======
 // construction functions for test
 fn get_term(str: &str) -> RowTerm {
