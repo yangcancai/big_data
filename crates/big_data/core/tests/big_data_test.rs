@@ -466,11 +466,11 @@ fn append() {
             RowTerm::Atom("lt".into()),
         ])]),
     ])]);
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Integer(1)]);
     let d = RowData::new("1", RowTerm::Integer(0), 10);
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Integer(0)]);
     // term is equal float
@@ -483,11 +483,11 @@ fn append() {
             RowTerm::Atom("lt".into()),
         ])]),
     ])]);
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Float(1.0)]);
     let d = RowData::new("1", RowTerm::Float(0.0), 10);
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Float(0.0)]);
     // term is equal tuple
@@ -525,7 +525,7 @@ fn append() {
             ]),
         ]),
     ]);
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::List(vec![RowTerm::Integer(0)]));
     assert_eq!(rs, vec![&RowTerm::Integer(0)]);
     let d = RowData::new(
@@ -539,7 +539,7 @@ fn append() {
         ]),
         10,
     );
-    let _ = big_data.append(d.clone(), option.clone());
+    let _ = big_data.append(d.clone(), &option);
     let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
     assert_eq!(
         rs,
@@ -610,12 +610,12 @@ fn append_replace_cond() {
             ]),
         ]),
     ]);
-    let _ = big_data.append(get_rowdata(|| get_term("a")), option.clone());
-    let _ = big_data.append(get_rowdata(|| get_term("b")), option.clone());
-    let _ = big_data.append(get_rowdata(|| get_term_key("c", 4)), option.clone());
+    let _ = big_data.append(get_rowdata(|| get_term("a")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term("b")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term_key("c", 4)), &option);
     let _ = big_data.append(
         get_rowdata(|| add_new_elem(|| get_term_key("e", 5), || RowTerm::Integer(90))),
-        option.clone(),
+        &option,
     );
     let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
     assert_eq!(
@@ -630,7 +630,7 @@ fn append_replace_cond() {
     assert_eq!(rs, vec![&RowTerm::Integer(90)]);
     let _ = big_data.append(
         get_rowdata(|| add_new_elem(|| get_term_key("e", 5), || RowTerm::Integer(100))),
-        option.clone(),
+        &option,
     );
     let rs = big_data.lookup_elem("1", RowTerm::Integer(2));
     assert_eq!(rs, vec![&RowTerm::Integer(100)]);

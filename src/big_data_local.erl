@@ -29,7 +29,7 @@
 
 -export([new/0, insert/3,insert/5, get/2, get_row/3, get_range/4, get_range_row_ids/4,
          get_row_ids/3, get_time_index/3, update_elem/4, update_counter/4, lookup_elem/4, remove/2,
-         remove_row/3, remove_row_ids/4, clear/1, reload/2, command/1, row_id/1]).
+         remove_row/3, remove_row_ids/4, clear/1, reload/2, command/1, row_id/1, append/4]).
 
 command(#bd_wal{action = Action, args = Args}) ->
     apply(?MODULE, Action, [?BD_BIG_DATA_REF | Args]).
@@ -214,7 +214,9 @@ remove_row(Ref, BigKey, RowID) when is_binary(BigKey), is_binary(RowID) ->
 remove_row_ids(Ref, BigKey, StartTime, EndTime)
     when is_binary(BigKey), is_integer(StartTime), is_integer(EndTime) ->
     big_data_nif:remove_row_ids(Ref, BigKey, StartTime, EndTime).
-
+-spec append(Ref :: big_data(), BigKey :: big_key(), RowData :: #row_data{}, Option :: options()) -> ok.
+append(Ref, BigKey, #row_data{} = RowData, Option) ->
+    big_data_nif:append(Ref, BigKey, RowData, Option).
 reload(Ref, BigKey) when is_binary(BigKey) ->
     case bd_backend_store:handle_get(BigKey) of
         [] ->

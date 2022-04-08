@@ -181,13 +181,18 @@ impl BigData {
             options: HashMap::new(),
         }
     }
+    pub fn append_list(&mut self, row_data_list: Vec<RowData>, option: &RowTerm){
+        for row_data in row_data_list{
+            let _= self.append(row_data, option);
+        }
+    }
     /// Append RowData to the BigData
     ///
     ///  # Example
     ///
     ///
     ///
-    pub fn append(&mut self, row_data: RowData, option: RowTerm) -> R<()> {
+    pub fn append(&mut self, row_data: RowData, option: &RowTerm) -> R<()> {
         let time = row_data.time;
         let row_id = row_data.row_id.clone();
         match self.rows.get_mut(&row_id) {
@@ -207,7 +212,7 @@ impl BigData {
                     RowTerm::Integer(index) => {
                         let index = *index as i32;
                         match self.options.get(&index) {
-                            Some(inner) => BigData::process_append(r, &row_data, inner.clone()),
+                            Some(inner) => BigData::process_append(r, &row_data, inner),
                             _ => Ok(()),
                         }
                     }
@@ -234,7 +239,7 @@ impl BigData {
     ///  Process append, this is private function
     ///
     ///
-    fn process_append(rs: &mut RowData, new: &RowData, option: RowTerm) -> R<()> {
+    fn process_append(rs: &mut RowData, new: &RowData, option: &RowTerm) -> R<()> {
         // Supported options
         let mut filter = HashMap::new();
         match option {

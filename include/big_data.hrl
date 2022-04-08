@@ -82,6 +82,26 @@
 -type row_data_list() :: [row_data()].
 -type t() :: integer().
 -type pos() :: integer().
+-type key() :: type | max_len | update | replace_cond.
+-type value() :: atom() | integer().
+-type option() :: [{key(), value()}].
+%% term = {1, [{2,a,b},{3,e,f}]}
+%% new_term = {10, [{3,b,c},{4,g,h}]}
+%% [
+%%  IF new_term.0 > term.0 then update term.0=new_term.0
+%% {0, [{update, gt}]},
+%%  IF term.1 is list then
+%%  term.1 max lenght equal 2 
+%%  replace_cond will replace tuple element accroding the key pos
+%%   
+%% {1, [{type, list},
+%%  {max_len, 2},
+%%  {replace_cond, 0}
+%% ]}]
+%% After append command:
+%% term = {10,[{3,b,c},{4,g,h}]}
+%% max_len equal 2 so {2,a,b} have been pop_fronted
+-type options() :: [{pos(), option()}].
 %%  pos from 0
 -type elem_spec() :: {pos(), term()} | pos().
 -type elem_specs() :: [elem_spec()].

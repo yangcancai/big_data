@@ -246,6 +246,48 @@ fn big_data_remove_row_ids(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         None => to_redis_res_ok(),
     }
 }
+fn big_data_append(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
+    let mut args = args.into_iter().skip(1);
+    let key = args.next_arg()?;
+    let two = args.next_arg()?;
+    let option = args.next_arg()?;
+    let option: &[u8] = option.as_slice();
+    args.done()?;
+    let binary: &[u8] = two.as_slice();
+    let decoded = Vec::<RowData>::from_bytes(binary);
+    let option = RowTerm::from_bytes(option);
+    match (decoded,option) {
+        (Ok(row_data), Ok(row_option)) => {
+            let key = ctx.open_key_writable(&key);
+            match key.get_value::<BigData>(&MY_REDIS_TYPE)? {
+                Some(value) => {
+                    value.append_list(row_data, &row_option);
+                }
+                None => {
+                    let mut big_data = BigData::new();
+                    big_data.append_list(row_data, &row_option);
+                    key.set_value(&MY_REDIS_TYPE, big_data)?;
+                }
+            }
+            // This function will replicate the command exactly as it was invoked by the client.
+            ctx.replicate_verbatim();
+            to_redis_res_ok()
+        }
+        (Err(e),_) => {
+            ctx.log_debug(format!("Error: {:?}", e).as_str());
+            let rs = error(format!("ERR {:?}", e));
+            println!("bin={:?}", binary);
+            rs
+        },
+        (_,Err(e)) => {
+            ctx.log_debug(format!("Error: {:?}", e).as_str());
+            let rs = error(format!("ERR {:?}", e));
+            println!("bin={:?}", binary);
+            rs
+        }
+
+    }
+}
 /// Read begin here
 ///
 fn big_data_lookup_elem(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
@@ -394,6 +436,9 @@ redis_module! {
         ["big_data.remove", big_data_remove, "write", 1, 1, 1],
         ["big_data.remove_row", big_data_remove_row, "write", 1, 1, 1],
         ["big_data.remove_row_ids", big_data_remove_row_ids, "write", 1, 1, 1],
+        // append
+        ["big_data.append", big_data_append, "write", 1, 1, 1],
+
         ["big_data.get_row", big_data_get_row, "readonly", 1, 1, 1],
         ["big_data.get", big_data_get, "readonly", 1, 1, 1],
         ["big_data.get_range", big_data_get_range, "readonly", 1, 1, 1],
