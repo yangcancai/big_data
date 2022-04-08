@@ -5,6 +5,7 @@ touch crates/big_data/build.rs
 build(){
     mkdir -p ./priv
     cargo build --manifest-path=crates/big_data/Cargo.toml --release
+    cargo build --manifest-path=crates/big_data/redis_api/Cargo.toml --release
     sh -c "cp $(cat crates/big_data/libpath) ./priv/libbig_data.so "
 }
 test(){
@@ -17,6 +18,7 @@ clippy(){
 clean(){
     rm -rf crates/big_data/libpath
     cargo clean --manifest-path=crates/big_data/Cargo.toml  
+    cargo clean --manifest-path=crates/big_data/redis_api/Cargo.toml  
 }
 help(){
     echo "sh build_crates.sh <command> :"

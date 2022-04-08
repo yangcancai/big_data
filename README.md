@@ -356,6 +356,8 @@ dtrace: system integrity protection is on, some features will not be available
 dtrace: description 'profile-997 ' matched 1 probe
 ```
 #### Start redis-server
+First of all build redis_api `make redis_api` then output library to `target/debug/libredis_api.dylib` or 
+`target/release/libredis_api.dylib`. The below command to load redis module
 ```shell
 $ redis-server --loadmodule target/debug/libredis_api.dylib
 42527:C 11 Jan 2022 17:24:07.942 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
