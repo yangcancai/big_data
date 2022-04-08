@@ -25,3 +25,6 @@ target
 .idea
 big_data.iml
 out.stacks
+.DS_Store
+.tool-versions
+.vscode/
