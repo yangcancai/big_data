@@ -594,6 +594,11 @@ all_term(_) ->
     do_insert_check(?LINE, {"a"}),
     do_insert_check(?LINE, {["a"]}),
     do_insert_check(?LINE, #{}),
+    do_insert_check(?LINE, {m,undefined,undefined,0,1649659818,1649659818,0,undefined,
+      [{d,1649659818,<<"123">>,2,<<"0">>,<<"0">>,<<"1">>,<<"0">>,<<>>,
+        <<"50000">>,<<>>,<<>>,<<>>,
+        [{xmlel,<<"text">>,[],[{xmlcdata,<<"hello">>}]}]}],
+      undefined}),
     ok.
 
 do_insert_check(Line, Term) ->
@@ -657,7 +662,27 @@ uid() ->
 append(_) ->
     do_append_check(?LINE, {0,[{1,a,b},{2,c,"你好"}]}, {1,[{2,c,"不好"},{3,e,f}], "new"},
      {1,[{2,c,"不好"},{3,e,f}], "new"}, [{0,[{update, gt}]}, {1, [{type, list},{max_len,2},{replace_cond,0}]}]),
-    ok.
+  do_append_check(?LINE,
+    {m,undefined,undefined,0,undefined,undefined,0,undefined,
+      [{d,1649651451,<<"123">>,2,<<"0">>,<<"0">>,<<"1">>,
+        <<"0">>,<<>>,<<"50000">>,<<>>,<<>>,<<>>,
+        [{xmlel,<<"text">>,[],[{xmlcdata,<<"hello">>}]}]}],
+      undefined},
+    {m,undefined,undefined,0,undefined,undefined,0,undefined,
+      [{d,1649651451,<<"123">>,2,<<"0">>,<<"0">>,<<"1">>,
+        <<"0">>,<<>>,<<"50000">>,<<>>,<<>>,<<>>,
+        [{xmlel,<<"text">>,[],[{xmlcdata,<<"hello">>}]}]}],
+      undefined},
+    {m,undefined,undefined,0,undefined,undefined,0,undefined,
+      [{d,1649651451,<<"123">>,2,<<"0">>,<<"0">>,<<"1">>,
+        <<"0">>,<<>>,<<"50000">>,<<>>,<<>>,<<>>,
+        [{xmlel,<<"text">>,[],[{xmlcdata,<<"hello">>}]}]},
+       {d,1649651451,<<"123">>,2,<<"0">>,<<"0">>,<<"1">>,
+          <<"0">>,<<>>,<<"50000">>,<<>>,<<>>,<<>>,
+          [{xmlel,<<"text">>,[],[{xmlcdata,<<"hello">>}]}]}],
+      undefined},
+  [{8,[{max_len,100},{type,list}]},{3,[{update,always}]},location]),
+ok.
 only_update_location(_) ->
     do_append_check(?LINE,
                     {0, [{1, a, b}, {2, c, "你好"}]},

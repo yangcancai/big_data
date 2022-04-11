@@ -195,18 +195,15 @@ impl BigData {
     pub fn append(&mut self, row_data: RowData, option: &RowTerm) -> R<()> {
         let time = row_data.time;
         let row_id = row_data.row_id.clone();
-        match self.rows.get_mut(&row_id) {
+        let result = match self.rows.get_mut(&row_id) {
             // first insert
             None => {
                 self.rows.insert(row_id.clone(), row_data);
+                Ok(())
             }
             // second insert
             Some(r) => {
                 let old_time = r.time;
-                // clear old time_index
-                if let Some(set) = self.time_index.get_mut(&old_time) {
-                    set.remove(&row_id);
-                }
                 let rs = match &option {
                     // If option is equal integer, then fetch option from options
                     RowTerm::Integer(index) => {
@@ -216,24 +213,30 @@ impl BigData {
                             _ => Ok(()),
                         }
                     }
-                    _ => BigData::process_append(r, &row_data, option),
+                    _ => BigData::process_append(r, &row_data, option)
                 };
                 match rs {
-                    Ok(()) => {}
-                    Err(e) => return Err(e),
+                    Ok(()) => {
+                        // clear old time_index
+                        if let Some(set) = self.time_index.get_mut(&old_time) {
+                            set.remove(&row_id);
+                        }
+                        Ok(())}
+                    Err(e) => Err(e),
                 }
             }
+        };
+        if let Ok(()) = result {
+            // insert time index
+            if let Some(set) = self.time_index.get_mut(&time) {
+                set.insert(row_id.clone());
+            } else {
+                let mut set = OrderSet::new();
+                set.insert(row_id.clone());
+                self.time_index.insert(time, Box::new(set));
+            }
         }
-
-        // insert time index
-        if let Some(set) = self.time_index.get_mut(&time) {
-            set.insert(row_id);
-        } else {
-            let mut set = OrderSet::new();
-            set.insert(row_id);
-            self.time_index.insert(time, Box::new(set));
-        }
-        Ok(())
+        result
     }
 
     ///  Process append, this is private function
@@ -280,23 +283,29 @@ impl BigData {
             }
             _ => return Err(Error::msg("Append option format error")),
         }
-        if let (RowTerm::Tuple(inner), RowTerm::Tuple(other)) = (&mut rs.term, &new.term) {
-            if !only_update_location || other.len() > inner.len() {
-                for i in 0..other.len() {
-                    // the pos option not included
-                    if filter.get(&i).is_none() {
-                        if inner.len() > i {
-                            if !only_update_location {
-                                inner[i] = other[i].clone();
+        match (&mut rs.term, &new.term) {
+            (RowTerm::Tuple(inner), RowTerm::Tuple(other))
+            => {
+                if !only_update_location || other.len() > inner.len() {
+                    for i in 0..other.len() {
+                        // the pos option not included
+                        if filter.get(&i).is_none() {
+                            if inner.len() > i {
+                                if !only_update_location {
+                                    inner[i] = other[i].clone();
+                                }
+                            } else {
+                                // new elem append
+                                inner.push(other[i].clone());
                             }
-                        } else {
-                            // new elem append
-                            inner.push(other[i].clone());
                         }
                     }
                 }
             }
+            (inner, other) => {
+                *inner = other.clone()},
         }
+        rs.time = new.time;
         Ok(())
     }
 
