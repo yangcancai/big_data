@@ -659,20 +659,46 @@ fn append_then_to_list() {
     let mut big_data = BigData::new();
     let d = RowData::new("a", RowTerm::Integer(0), 10);
     let option = &RowTerm::List(vec![]);
-    let _= big_data.append(d.clone(), option);
+    let _ = big_data.append(d.clone(), option);
     let e = RowData::new("e", RowTerm::Integer(7), 3);
-    let _= big_data.append(e.clone(), option);
+    let _ = big_data.append(e.clone(), option);
     let e = RowData::new("e", RowTerm::Integer(7), 4);
     let _ = big_data.append(e.clone(), option);
     let e = RowData::new("e", RowTerm::Integer(8), 5);
-    let _= big_data.append(e.clone(), option);
+    let _ = big_data.append(e.clone(), option);
     let e = RowData::new("e", RowTerm::Integer(7), 6);
     let mut list = vec![];
-    let _= big_data.append(e.clone(), option);
+    let _ = big_data.append(e.clone(), option);
     list.clear();
     list.push(&e);
     list.push(&d);
     assert_eq!(list, big_data.to_list());
+}
+#[test]
+fn update_always() {
+    let mut big_data = BigData::new();
+    let option = RowTerm::List(vec![
+        // feature: update location
+        RowTerm::Atom("location".into()),
+        // pos = 1
+        RowTerm::Tuple(vec![
+            RowTerm::Integer(1),
+            RowTerm::List(vec![RowTerm::Tuple(vec![
+                RowTerm::Atom("update".into()),
+                RowTerm::Atom("always".into()),
+            ])]),
+        ]),
+    ]);
+    let _ = big_data.append(get_rowdata(|| get_term("a")), &option);
+    let _ = big_data.append(get_rowdata(|| get_term("b")), &option);
+    let rs = big_data.lookup_elem("1", RowTerm::Integer(1));
+    assert_eq!(
+        rs,
+        vec![&RowTerm::List(vec![RowTerm::Tuple(vec![
+            RowTerm::Atom("b".into()),
+            RowTerm::Integer(3),
+        ]),])]
+    );
 }
 // =======
 // construction functions for test
