@@ -403,7 +403,11 @@ fn to_list() {
     let mut list = Vec::new();
     list.push(&d);
     assert_eq!(list, big_data.to_list());
-    let e = RowData::new("e", RowTerm::Integer(0), 1);
+    let e = RowData::new("e", RowTerm::Integer(10), 1);
+    big_data.insert(e.clone());
+    let e = RowData::new("e", RowTerm::Integer(0), 2);
+    big_data.insert(e.clone());
+    let e = RowData::new("e", RowTerm::Integer(7), 3);
     big_data.insert(e.clone());
     list.clear();
     list.push(&e);
@@ -649,7 +653,27 @@ fn only_update_location() {
         ]),])]
     );
 }
-
+#[test]
+fn append_then_to_list() {
+    // append
+    let mut big_data = BigData::new();
+    let d = RowData::new("a", RowTerm::Integer(0), 10);
+    let option = &RowTerm::List(vec![]);
+    let _= big_data.append(d.clone(), option);
+    let e = RowData::new("e", RowTerm::Integer(7), 3);
+    let _= big_data.append(e.clone(), option);
+    let e = RowData::new("e", RowTerm::Integer(7), 4);
+    let _ = big_data.append(e.clone(), option);
+    let e = RowData::new("e", RowTerm::Integer(8), 5);
+    let _= big_data.append(e.clone(), option);
+    let e = RowData::new("e", RowTerm::Integer(7), 6);
+    let mut list = vec![];
+    let _= big_data.append(e.clone(), option);
+    list.clear();
+    list.push(&e);
+    list.push(&d);
+    assert_eq!(list, big_data.to_list());
+}
 // =======
 // construction functions for test
 fn get_term(str: &str) -> RowTerm {
